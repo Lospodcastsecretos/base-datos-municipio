@@ -1,0 +1,22 @@
+# Entorno virtual
+venv/
+.env
+
+# Bases de datos locales
+normativas.db
+chroma_db/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+
+# Archivos temporales o del sistema operativo
+.DS_Store
+Thumbs.db
