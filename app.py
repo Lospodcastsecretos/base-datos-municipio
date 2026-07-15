@@ -89,23 +89,56 @@ with tab2:
         st.dataframe(display_df, use_container_width=True)
         
         # Detail view
-        st.subheader("Ver Detalle")
+        st.subheader("Ver Detalle / Editar")
         selected_id = st.selectbox("Seleccionar ID de norma para ver detalles:", df['id'])
         if selected_id:
             detail = df[df['id'] == selected_id].iloc[0]
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"**Número:** {detail['numero']}")
-                st.markdown(f"**Tipo:** {detail['tipo_nombre']}")
-                st.markdown(f"**Fecha:** {detail['fecha']}")
-                st.markdown(f"**Estado:** {'Vigente' if detail['vigente'] else 'No Vigente/Derogada'}")
-                st.markdown(f"**Categoría:** {detail['categoria_nombre']}")
-            with col2:
-                st.markdown(f"**Título Oficial:** {detail['titulo']}")
-                st.markdown(f"**Resumen IA:** {detail['resumen_ia']}")
             
-            with st.expander("Ver Texto Completo Extraído"):
-                st.text(detail['texto_completo'])
+            # Use tabs for View and Edit
+            v_tab, e_tab = st.tabs(["Ver Información", "Editar Registro"])
+            
+            with v_tab:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(f"**Número:** {detail['numero']}")
+                    st.markdown(f"**Tipo:** {detail['tipo_nombre']}")
+                    st.markdown(f"**Fecha:** {detail['fecha']}")
+                    st.markdown(f"**Estado:** {'Vigente' if detail['vigente'] else 'No Vigente/Derogada'}")
+                    st.markdown(f"**Categoría:** {detail['categoria_nombre']}")
+                with col2:
+                    st.markdown(f"**Título Oficial:** {detail['titulo']}")
+                    st.markdown(f"**Resumen IA:** {detail['resumen_ia']}")
+                
+                with st.expander("Ver Texto Completo Extraído"):
+                    st.text(detail['texto_completo'])
+                    
+                if st.button("🗑️ Eliminar Norma", type="primary", use_container_width=True):
+                    database.delete_normativa(int(selected_id))
+                    st.success("Norma eliminada exitosamente. Actualiza la tabla.")
+            
+            with e_tab:
+                with st.form("edit_form"):
+                    st.write("Modifica los datos y guarda los cambios.")
+                    new_numero = st.text_input("Número", value=str(detail['numero'] if detail['numero'] else ""))
+                    new_titulo = st.text_input("Título Oficial", value=str(detail['titulo'] if detail['titulo'] else ""))
+                    new_tipo = st.text_input("Tipo", value=str(detail['tipo_nombre'] if detail['tipo_nombre'] else ""))
+                    new_cat = st.text_input("Categoría", value=str(detail['categoria_nombre'] if detail['categoria_nombre'] else ""))
+                    new_fecha = st.text_input("Fecha", value=str(detail['fecha'] if detail['fecha'] else ""))
+                    new_resumen = st.text_area("Resumen IA", value=str(detail['resumen_ia'] if detail['resumen_ia'] else ""))
+                    new_vigente = st.checkbox("Vigente", value=bool(detail['vigente']))
+                    
+                    if st.form_submit_button("Guardar Cambios"):
+                        updated_data = {
+                            "numero": new_numero,
+                            "titulo": new_titulo,
+                            "tipo_nombre": new_tipo,
+                            "categoria_nombre": new_cat,
+                            "fecha": new_fecha,
+                            "resumen_ia": new_resumen,
+                            "vigente": new_vigente
+                        }
+                        database.update_normativa(int(selected_id), updated_data)
+                        st.success("¡Datos actualizados! Actualiza la tabla para ver los cambios.")
     else:
         st.info("La base de datos está vacía. Procesa algunos documentos primero.")
 
