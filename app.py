@@ -74,10 +74,15 @@ with tab1:
                     os.unlink(tmp_path)
                     
                     if len(uploaded_files) > 1 and i < len(uploaded_files) - 1:
-                        status_text.text(f"Esperando 60 segundos para no exceder el límite gratuito de la API de Google...")
-                        import time
-                        time.sleep(60)
-                        
+                        if "Google" in ia_engine:
+                            status_text.text(f"Esperando 60 segundos para no exceder el límite gratuito de Google...")
+                            import time
+                            time.sleep(60)
+                        else:
+                            # DeepSeek es mucho más permisivo, solo esperamos 1 segundo por cortesía
+                            import time
+                            time.sleep(1)
+                            
                 except Exception as e:
                     # Si es un error de reintentos de Tenacity, sacamos el error real que está adentro
                     from tenacity import RetryError
