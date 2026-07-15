@@ -94,3 +94,34 @@ def generate_embedding(texto: str) -> list[float]:
         task_type="retrieval_document"
     )
     return result['embedding']
+
+@retry(stop=stop_after_attempt(5), wait=wait_fixed(65))
+def transcribe_pdf_with_gemini(file_path: str) -> str:
+    """
+    Sube un PDF escaneado a Gemini para extraer el texto mediante OCR (visión).
+    """
+    if not api_key:
+        raise ValueError("GOOGLE_API_KEY no está configurada.")
+    
+    # Subir archivo a la API de Gemini
+    uploaded_file = genai.upload_file(path=file_path)
+    
+    import time
+    # Esperar a que el archivo sea procesado (requerido para PDFs grandes)
+    while uploaded_file.state.name == "PROCESSING":
+        time.sleep(2)
+        uploaded_file = genai.get_file(uploaded_file.name)
+        
+    if uploaded_file.state.name == "FAILED":
+        uploaded_file.delete()
+        raise ValueError("Gemini falló al procesar el archivo PDF internamente.")
+        
+    model = genai.GenerativeModel('gemini-flash-latest')
+    prompt = "Eres un paleógrafo experto. Transcribe TODO el texto legible de este documento de la forma más exacta posible. Presta especial atención al texto escrito a mano o en letra cursiva antigua. Devuelve únicamente la transcripción del texto, sin comentarios extra."
+    
+    response = model.generate_content([uploaded_file, prompt])
+    
+    # Limpiar el archivo subido de los servidores de Google por privacidad
+    uploaded_file.delete()
+    
+    return response.text

@@ -30,7 +30,18 @@ def _process_pdf(file_path: str) -> str:
                     text += page_text + "\n"
     except Exception as e:
         print(f"Error leyendo PDF {file_path}: {e}")
-    return text.strip()
+        
+    text = text.strip()
+    
+    # Si el texto es muy corto o vacío, es probable que sea un documento escaneado/imagen
+    if len(text) < 50:
+        print(f"[{file_path}] Poco texto detectado. Iniciando OCR con Gemini...")
+        from ai_extractor import transcribe_pdf_with_gemini
+        ocr_text = transcribe_pdf_with_gemini(file_path)
+        if ocr_text:
+            return "[NOTA_SISTEMA: Documento escaneado. Texto transcrito mediante OCR por IA]\n\n" + ocr_text.strip()
+            
+    return text
 
 def _process_docx(file_path: str) -> str:
     text = ""
