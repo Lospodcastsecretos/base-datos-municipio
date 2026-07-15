@@ -22,11 +22,18 @@ with tab1:
     
     uploaded_files = st.file_uploader("Seleccionar archivos", type=["pdf", "docx"], accept_multiple_files=True)
     
+    # Engine selector
+    st.subheader("Configuración de IA")
+    ia_engine = st.radio("Selecciona el motor de Inteligencia Artificial para extraer los datos:", 
+                         options=["DeepSeek (Recomendado - Menos límites)", "Google Gemini (Plan Gratuito)"])
+    
     if st.button("Procesar Archivos", type="primary"):
         if not uploaded_files:
             st.warning("Por favor, sube al menos un archivo.")
-        elif not os.getenv("GOOGLE_API_KEY"):
+        elif ia_engine == "Google Gemini (Plan Gratuito)" and not os.getenv("GOOGLE_API_KEY"):
             st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env")
+        elif ia_engine == "DeepSeek (Recomendado - Menos límites)" and not os.getenv("DEEPSEEK_API_KEY"):
+            st.error("⚠️ Falta configurar DEEPSEEK_API_KEY en el archivo .env")
         else:
             progress_bar = st.progress(0)
             status_text = st.empty()
@@ -47,11 +54,19 @@ with tab1:
                         continue
                     
                     # 2. Extract Metadata via AI
-                    status_text.text(f"Extrayendo metadatos con IA: {file.name}")
-                    metadata = extract_metadata_and_summary(texto_completo)
+                    status_text.text(f"Extrayendo metadatos con IA ({'DeepSeek' if 'DeepSeek' in ia_engine else 'Gemini'}): {file.name}")
+                    if "DeepSeek" in ia_engine:
+                        from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
+                        metadata = extract_metadata_and_summary_deepseek(texto_completo)
+                    else:
+                        metadata = extract_metadata_and_summary(texto_completo)
                     
-                    # 3. Generate Embedding
-                    status_text.text(f"Generando vector de búsqueda (embedding): {file.name}")
+                    # 3. Generate Embedding (Always Google)
+                    status_text.text(f"Generando vector de búsqueda (Gemini): {file.name}")
+                    if not os.getenv("GOOGLE_API_KEY"):
+                        st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env (Requerido para generar vectores de búsqueda)")
+                        continue
+                        
                     embedding = generate_embedding(texto_completo)
                     
                     # 4. Save to DB
@@ -62,14 +77,26 @@ with tab1:
                     # Clean up
                     os.unlink(tmp_path)
                     
-                    # Rate limiting: if there's more than one file, wait to avoid hitting the 5-requests-per-minute limit
                     if len(uploaded_files) > 1 and i < len(uploaded_files) - 1:
-                        status_text.text(f"Esperando 30 segundos para no exceder el límite gratuito de la API de Google...")
+                        status_text.text(f"Esperando 60 segundos para no exceder el límite gratuito de la API de Google...")
                         import time
-                        time.sleep(30)
+                        time.sleep(60)
                         
                 except Exception as e:
-                    st.error(f"❌ Error al procesar {file.name}: {str(e)}")
+                    # Si es un error de reintentos de Tenacity, sacamos el error real que está adentro
+                    from tenacity import RetryError
+                    if isinstance(e, RetryError):
+                        real_error = e.last_attempt.exception()
+                        error_msg = str(real_error)
+                    else:
+                        error_msg = str(e)
+                        
+                    if "ResourceExhausted" in error_msg or "429" in error_msg:
+                        st.error(f"❌ Error al procesar {file.name}: Límite de cuota gratuita superado (ResourceExhausted). Intenta más tarde o procesa este documento manualmente.")
+                    elif "InvalidArgument" in error_msg or "400" in error_msg:
+                        st.error(f"❌ Error al procesar {file.name}: El archivo contiene datos que la IA no pudo procesar (InvalidArgument). Es posible que el texto extraído contenga caracteres corruptos o no sea compatible con la API. Error técnico: {error_msg}")
+                    else:
+                        st.error(f"❌ Error al procesar {file.name}: {error_msg}")
                 
                 progress_bar.progress((i + 1) / len(uploaded_files))
             
