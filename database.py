@@ -155,6 +155,8 @@ def reset_database():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('DELETE FROM normativas')
+    # Resetea el contador de ID (AUTOINCREMENT) para que vuelva a empezar desde 1
+    cursor.execute("DELETE FROM sqlite_sequence WHERE name='normativas'")
     conn.commit()
     conn.close()
     
