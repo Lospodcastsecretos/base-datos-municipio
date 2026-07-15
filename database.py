@@ -148,3 +148,21 @@ def delete_normativa(db_id: int):
         collection.delete(ids=[str(db_id)])
     except Exception as e:
         print(f"Error deleting from ChromaDB {db_id}: {e}")
+
+def reset_database():
+    """Wipes all data from SQLite and ChromaDB."""
+    # Delete all records from SQLite
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM normativas')
+    conn.commit()
+    conn.close()
+    
+    # Wipe ChromaDB collection
+    try:
+        chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
+        chroma_client.delete_collection(name="normativas_vectores")
+        # Recreate an empty collection
+        chroma_client.get_or_create_collection(name="normativas_vectores")
+    except Exception as e:
+        print(f"Error resetting ChromaDB: {e}")

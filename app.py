@@ -77,8 +77,28 @@ with tab1:
 
 with tab2:
     st.header("Base de Datos de Normativas")
-    if st.button("🔄 Actualizar Tabla"):
-        pass # Streamlit reruns the script anyway
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+    with col_btn1:
+        if st.button("🔄 Actualizar Tabla"):
+            pass # Streamlit reruns the script anyway
+    with col_btn2:
+        if 'edit_mode' not in st.session_state:
+            st.session_state.edit_mode = False
+        if st.button("✏️ Modificar Tabla"):
+            st.session_state.edit_mode = not st.session_state.edit_mode
+    with col_btn3:
+        if st.button("⚠️ Reiniciar Tabla"):
+            st.session_state.show_reset_confirm = True
+
+    if st.session_state.get('show_reset_confirm'):
+        st.warning("¿Estás seguro? Esto borrará TODA la base de datos (SQLite y ChromaDB) de forma irreversible.")
+        col_y, col_n = st.columns(2)
+        if col_y.button("Sí, borrar todo", type="primary"):
+            database.reset_database()
+            st.session_state.show_reset_confirm = False
+            st.success("Base de datos reiniciada. Refresca la página.")
+        if col_n.button("No, cancelar"):
+            st.session_state.show_reset_confirm = False
     
     normativas = database.get_all_normativas()
     
@@ -86,7 +106,26 @@ with tab2:
         df = pd.DataFrame(normativas)
         # Reorder and filter columns for display
         display_df = df[['id', 'numero', 'tipo_nombre', 'titulo', 'categoria_nombre', 'fecha', 'vigente', 'resumen_ia']]
-        st.dataframe(display_df, use_container_width=True)
+        
+        if st.session_state.get('edit_mode'):
+            st.info("Modo Edición: Modifica los valores directamente en la tabla y presiona 'Guardar' abajo.")
+            edited_df = st.data_editor(display_df, use_container_width=True)
+            if st.button("💾 Guardar Modificaciones de la Tabla", type="primary"):
+                for index, row in edited_df.iterrows():
+                    updated_data = {
+                        "numero": str(row['numero']) if pd.notnull(row['numero']) else "",
+                        "titulo": str(row['titulo']) if pd.notnull(row['titulo']) else "",
+                        "tipo_nombre": str(row['tipo_nombre']) if pd.notnull(row['tipo_nombre']) else "",
+                        "categoria_nombre": str(row['categoria_nombre']) if pd.notnull(row['categoria_nombre']) else "",
+                        "fecha": str(row['fecha']) if pd.notnull(row['fecha']) else "",
+                        "resumen_ia": str(row['resumen_ia']) if pd.notnull(row['resumen_ia']) else "",
+                        "vigente": bool(row['vigente'])
+                    }
+                    database.update_normativa(int(row['id']), updated_data)
+                st.success("Cambios guardados en la base de datos.")
+                st.session_state.edit_mode = False
+        else:
+            st.dataframe(display_df, use_container_width=True)
         
         # Detail view
         st.subheader("Ver Detalle / Editar")
