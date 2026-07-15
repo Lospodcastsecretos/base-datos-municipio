@@ -80,17 +80,23 @@ def extract_metadata_and_summary(texto: str) -> dict:
             "fecha": "", "url_detalle": "", "texto_consolidado": "", "resumen_ia": "No se pudo generar el resumen."
         }
 
-@retry(stop=stop_after_attempt(5), wait=wait_fixed(65))
+# Inicializar el modelo local de embeddings de manera diferida (lazy loading)
+_embedding_model = None
+
+def get_embedding_model():
+    global _embedding_model
+    if _embedding_model is None:
+        from sentence_transformers import SentenceTransformer
+        # Usamos un modelo multilingüe excelente para español, que se descarga automáticamente a la PC.
+        _embedding_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+    return _embedding_model
+
 def generate_embedding(texto: str) -> list[float]:
     """
-    Generates an embedding vector for the given text using Gemini's embedding model.
+    Generates an embedding vector for the given text using a LOCAL model.
+    100% free, no API keys, no quotas.
     """
-    if not api_key:
-        raise ValueError("GOOGLE_API_KEY no está configurada.")
-        
-    result = genai.embed_content(
-        model="models/gemini-embedding-2",
-        content=texto[:10000],
-        task_type="retrieval_document"
-    )
-    return result['embedding']
+    model = get_embedding_model()
+    # Generar el vector (truncamos a 10000 caracteres como precaución, aunque los modelos locales cortan automáticamente en ~512 tokens)
+    embedding = model.encode(texto[:10000]).tolist()
+    return embedding

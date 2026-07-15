@@ -61,12 +61,8 @@ with tab1:
                     else:
                         metadata = extract_metadata_and_summary(texto_completo)
                     
-                    # 3. Generate Embedding (Always Google)
-                    status_text.text(f"Generando vector de búsqueda (Gemini): {file.name}")
-                    if not os.getenv("GOOGLE_API_KEY"):
-                        st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env (Requerido para generar vectores de búsqueda)")
-                        continue
-                        
+                    # 3. Generate Embedding (Local)
+                    status_text.text(f"Generando vector de búsqueda (Modelo Local sin límites): {file.name}")
                     embedding = generate_embedding(texto_completo)
                     
                     # 4. Save to DB
