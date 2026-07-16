@@ -287,9 +287,13 @@ with tab4:
                     try:
                         metadata = extract_metadata_and_summary_deepseek(norma['texto_completo'])
                         refs = metadata.get('referencias', [])
+                        rels = metadata.get('relaciones_juridicas', [])
                         
                         # Actualizar en BD
-                        database.update_normativa(norma['id'], {"referencias": json.dumps(refs)})
+                        database.update_normativa(norma['id'], {
+                            "referencias": json.dumps(refs),
+                            "relaciones_juridicas": json.dumps(rels)
+                        })
                     except Exception as e:
                         pass
                     progress_bar.progress((i + 1) / len(viejas))
