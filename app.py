@@ -154,6 +154,14 @@ with tab2:
                 st.session_state.edit_mode = False
         else:
             st.dataframe(display_df, use_container_width=True)
+            
+            st.download_button(
+                label="📥 Descargar Base Completa (CSV / Excel)",
+                data=df.to_csv(index=False).encode('utf-8'),
+                file_name='base_datos_municipal_completa.csv',
+                mime='text/csv',
+                help="Descarga un archivo con todas las columnas, incluyendo el texto extraído completo de cada normativa."
+            )
         
         # Detail view
         st.subheader("Ver Detalle / Editar")
