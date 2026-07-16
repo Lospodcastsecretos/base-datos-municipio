@@ -34,14 +34,24 @@ def extract_metadata_and_summary_deepseek(texto: str) -> dict:
       "url_detalle": "",
       "texto_consolidado": "",
       "resumen_ia": "Resumen de exactamente 3 renglones generado por IA.",
-      "referencias": ["123", "456"]
+      "referencias": ["123", "456"],
+      "relaciones_juridicas": [
+        {
+          "norma_destino": "123",
+          "accion": "modifica",
+          "detalle": "modifica el art 3"
+        }
+      ]
     }
     '''
 
     prompt_sistema = f"""
     Eres un asistente legal experto en analizar normativas municipales.
     Extrae la información del siguiente documento y devuélvela ESTRICTAMENTE en formato JSON válido, sin usar bloques de código Markdown ni texto adicional.
-    El campo 'referencias' debe ser una lista con los números exactos de otras ordenanzas o decretos mencionados en el texto (ej: si menciona la Ordenanza 123 y Decreto 456, pones ["123", "456"]). Si no hay referencias, envía una lista vacía [].
+    El campo 'referencias' debe ser una lista con los números exactos de otras ordenanzas o decretos mencionados.
+    El campo 'relaciones_juridicas' debe ser una lista de objetos describiendo la acción exacta que esta norma ejerce sobre otras. 
+    Las acciones permitidas son: "modifica", "sustituye", "deroga total", "deroga parcial", "incorpora", "suprime", "reglamenta", "prorroga", "suspende", "complementa", "remite a", "corrige", "aprueba anexo".
+    Si no hay relaciones claras, devuelve una lista vacía [].
     El JSON debe tener exactamente esta estructura y tipos de datos:
     {schema_ejemplo}
     """

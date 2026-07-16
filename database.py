@@ -26,15 +26,18 @@ def init_db():
             texto_consolidado TEXT,
             resumen_ia TEXT,
             archivo_origen TEXT,
-            referencias TEXT
+            referencias TEXT,
+            relaciones_juridicas TEXT
         )
     ''')
     
-    # Auto-migration: check if 'referencias' column exists, if not, add it
+    # Auto-migration: check if 'referencias' or 'relaciones_juridicas' column exists, if not, add it
     cursor.execute("PRAGMA table_info(normativas)")
     columns = [col[1] for col in cursor.fetchall()]
     if 'referencias' not in columns:
         cursor.execute("ALTER TABLE normativas ADD COLUMN referencias TEXT")
+    if 'relaciones_juridicas' not in columns:
+        cursor.execute("ALTER TABLE normativas ADD COLUMN relaciones_juridicas TEXT")
         
     conn.commit()
     conn.close()
@@ -58,12 +61,19 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
     else:
         refs_str = str(refs)
         
+    # Asegurar que relaciones sea un string JSON
+    rels = metadata.get('relaciones_juridicas', [])
+    if isinstance(rels, list):
+        rels_str = json.dumps(rels)
+    else:
+        rels_str = str(rels)
+        
     cursor.execute('''
         INSERT INTO normativas (
             numero, titulo, resumen, tipo_nombre, categoria_nombre, 
             vigente, fecha, url_detalle, texto_completo, 
-            texto_consolidado, resumen_ia, archivo_origen, referencias
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            texto_consolidado, resumen_ia, archivo_origen, referencias, relaciones_juridicas
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         metadata.get('numero', ''),
         metadata.get('titulo', ''),
@@ -77,7 +87,8 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
         metadata.get('texto_consolidado', ''),
         metadata.get('resumen_ia', ''),
         archivo_origen,
-        refs_str
+        refs_str,
+        rels_str
     ))
     db_id = cursor.lastrowid
     conn.commit()
@@ -127,7 +138,7 @@ def update_normativa(db_id: int, updated_data: dict):
     fields = []
     values = []
     
-    for key in ['numero', 'titulo', 'tipo_nombre', 'categoria_nombre', 'vigente', 'fecha', 'resumen_ia', 'referencias']:
+    for key in ['numero', 'titulo', 'tipo_nombre', 'categoria_nombre', 'vigente', 'fecha', 'resumen_ia', 'referencias', 'relaciones_juridicas']:
         if key in updated_data:
             fields.append(f"{key} = ?")
             values.append(updated_data[key])

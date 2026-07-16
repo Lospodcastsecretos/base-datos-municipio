@@ -14,7 +14,7 @@ database.init_db()
 
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 
-tab1, tab2, tab3, tab4 = st.tabs(["📤 Procesar Documentos", "🗃️ Explorar Base de Datos", "🔍 Búsqueda Semántica", "🕸️ Mapa de Conexiones"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📤 Procesar Documentos", "🗃️ Explorar Base de Datos", "🔍 Búsqueda Semántica", "🕸️ Mapa de Conexiones", "⚖️ Relaciones Jurídicas"])
 
 with tab1:
     st.header("Cargar y Procesar Normativas")
@@ -303,3 +303,53 @@ with tab4:
             components.html(st.session_state['graph_html'], height=650)
         else:
             st.info("👈 Haz clic en 'Generar Mapa' para ver las conexiones.")
+
+with tab5:
+    st.header("⚖️ Relaciones Jurídicas")
+    st.write("Listado detallado de las acciones legales (modificaciones, derogaciones, etc.) que ejercen unas normas sobre otras.")
+    
+    normativas = database.get_all_normativas()
+    
+    # Extraer todas las relaciones a una lista plana para armar una tabla
+    relaciones_planas = []
+    import json
+    
+    for norma in normativas:
+        rels_str = norma.get('relaciones_juridicas')
+        if rels_str and rels_str != '[]' and rels_str != 'None':
+            try:
+                rels = json.loads(rels_str)
+                for r in rels:
+                    relaciones_planas.append({
+                        "Norma Origen": norma.get('numero', 'N/A'),
+                        "Acción Jurídica": str(r.get('accion', '')).upper(),
+                        "Norma Destino": r.get('norma_destino', 'N/A'),
+                        "Detalle": r.get('detalle', '')
+                    })
+            except Exception:
+                pass
+                
+    if relaciones_planas:
+        df_rels = pd.DataFrame(relaciones_planas)
+        # Colorear acciones en la tabla
+        def highlight_action(val):
+            color = ''
+            v = str(val).lower()
+            if 'deroga' in v:
+                color = 'color: #f44336; font-weight: bold;'
+            elif 'modifica' in v or 'sustituye' in v or 'corrige' in v:
+                color = 'color: #ff9800; font-weight: bold;'
+            elif 'reglamenta' in v or 'aprueba' in v or 'complementa' in v:
+                color = 'color: #4CAF50; font-weight: bold;'
+            return color
+            
+        st.dataframe(df_rels.style.map(highlight_action, subset=['Acción Jurídica']), use_container_width=True)
+        
+        st.download_button(
+            label="📥 Exportar Relaciones (CSV)",
+            data=df_rels.to_csv(index=False).encode('utf-8'),
+            file_name='relaciones_juridicas.csv',
+            mime='text/csv'
+        )
+    else:
+        st.info("Aún no se han detectado relaciones jurídicas complejas. Recuerda usar DeepSeek para procesar o escanear documentos y detectar si modifican o derogan a otros.")
