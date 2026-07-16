@@ -14,7 +14,7 @@ database.init_db()
 
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 
-tab1, tab2, tab3 = st.tabs(["📤 Procesar Documentos", "🗃️ Explorar Base de Datos", "🔍 Búsqueda Semántica"])
+tab1, tab2, tab3, tab4 = st.tabs(["📤 Procesar Documentos", "🗃️ Explorar Base de Datos", "🔍 Búsqueda Semántica", "🕸️ Mapa de Conexiones"])
 
 with tab1:
     st.header("Cargar y Procesar Normativas")
@@ -250,3 +250,56 @@ with tab3:
                         st.info("No se encontraron resultados muy similares.")
                 except Exception as e:
                     st.error(f"Error en la búsqueda: {e}")
+
+with tab4:
+    st.header("🕸️ Mapa de Conexiones (Grafo)")
+    st.write("Visualiza cómo las normativas se referencian entre sí.")
+    
+    col_g1, col_g2 = st.columns([3, 1])
+    
+    with col_g2:
+        st.subheader("Herramientas")
+        if st.button("🔄 Generar / Actualizar Mapa", type="primary", use_container_width=True):
+            with st.spinner("Dibujando conexiones..."):
+                from network_graph import generate_network_graph
+                html_data = generate_network_graph()
+                st.session_state['graph_html'] = html_data
+                
+        st.divider()
+        st.write("**¿Faltan conexiones de documentos viejos?**")
+        st.write("Usa DeepSeek para escanear documentos que fueron subidos antes de implementar el mapa.")
+        if st.button("🔍 Escanear documentos antiguos", use_container_width=True):
+            if not os.getenv("DEEPSEEK_API_KEY"):
+                st.error("⚠️ Necesitas configurar DEEPSEEK_API_KEY en .env")
+            else:
+                normativas = database.get_all_normativas()
+                from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
+                import json
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                # Filtrar normativas sin referencias
+                viejas = [n for n in normativas if not n.get('referencias') or n.get('referencias') == '[]' or n.get('referencias') == 'None']
+                
+                for i, norma in enumerate(viejas):
+                    status_text.text(f"Escaneando Norma {norma['numero']} ({i+1}/{len(viejas)})...")
+                    try:
+                        metadata = extract_metadata_and_summary_deepseek(norma['texto_completo'])
+                        refs = metadata.get('referencias', [])
+                        
+                        # Actualizar en BD
+                        database.update_normativa(norma['id'], {"referencias": json.dumps(refs)})
+                    except Exception as e:
+                        pass
+                    progress_bar.progress((i + 1) / len(viejas))
+                
+                status_text.text("¡Escaneo completo! Actualiza el mapa para ver las nuevas conexiones.")
+                st.success(f"Se escanearon {len(viejas)} documentos antiguos.")
+                
+    with col_g1:
+        if 'graph_html' in st.session_state:
+            import streamlit.components.v1 as components
+            components.html(st.session_state['graph_html'], height=650)
+        else:
+            st.info("👈 Haz clic en 'Generar Mapa' para ver las conexiones.")

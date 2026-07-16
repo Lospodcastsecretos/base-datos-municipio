@@ -33,13 +33,15 @@ def extract_metadata_and_summary_deepseek(texto: str) -> dict:
       "fecha": "YYYY-MM-DD",
       "url_detalle": "",
       "texto_consolidado": "",
-      "resumen_ia": "Resumen de exactamente 3 renglones generado por IA."
+      "resumen_ia": "Resumen de exactamente 3 renglones generado por IA.",
+      "referencias": ["123", "456"]
     }
     '''
 
     prompt_sistema = f"""
     Eres un asistente legal experto en analizar normativas municipales.
     Extrae la información del siguiente documento y devuélvela ESTRICTAMENTE en formato JSON válido, sin usar bloques de código Markdown ni texto adicional.
+    El campo 'referencias' debe ser una lista con los números exactos de otras ordenanzas o decretos mencionados en el texto (ej: si menciona la Ordenanza 123 y Decreto 456, pones ["123", "456"]). Si no hay referencias, envía una lista vacía [].
     El JSON debe tener exactamente esta estructura y tipos de datos:
     {schema_ejemplo}
     """

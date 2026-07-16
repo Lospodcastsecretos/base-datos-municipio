@@ -25,9 +25,17 @@ def init_db():
             texto_completo TEXT,
             texto_consolidado TEXT,
             resumen_ia TEXT,
-            archivo_origen TEXT
+            archivo_origen TEXT,
+            referencias TEXT
         )
     ''')
+    
+    # Auto-migration: check if 'referencias' column exists, if not, add it
+    cursor.execute("PRAGMA table_info(normativas)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'referencias' not in columns:
+        cursor.execute("ALTER TABLE normativas ADD COLUMN referencias TEXT")
+        
     conn.commit()
     conn.close()
 
@@ -38,15 +46,24 @@ def init_db():
 
 def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, embedding: list[float]):
     """Inserts a new document and its metadata into SQLite and ChromaDB."""
+    import json
     # Insert in SQLite
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
+    # Asegurar que referencias sea un string JSON si viene como lista
+    refs = metadata.get('referencias', [])
+    if isinstance(refs, list):
+        refs_str = json.dumps(refs)
+    else:
+        refs_str = str(refs)
+        
     cursor.execute('''
         INSERT INTO normativas (
             numero, titulo, resumen, tipo_nombre, categoria_nombre, 
             vigente, fecha, url_detalle, texto_completo, 
-            texto_consolidado, resumen_ia, archivo_origen
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            texto_consolidado, resumen_ia, archivo_origen, referencias
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         metadata.get('numero', ''),
         metadata.get('titulo', ''),
@@ -59,7 +76,8 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
         texto_completo,
         metadata.get('texto_consolidado', ''),
         metadata.get('resumen_ia', ''),
-        archivo_origen
+        archivo_origen,
+        refs_str
     ))
     db_id = cursor.lastrowid
     conn.commit()
@@ -104,20 +122,23 @@ def update_normativa(db_id: int, updated_data: dict):
     """Updates a document's metadata in SQLite."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('''
-        UPDATE normativas 
-        SET numero = ?, titulo = ?, tipo_nombre = ?, categoria_nombre = ?, vigente = ?, fecha = ?, resumen_ia = ?
-        WHERE id = ?
-    ''', (
-        updated_data.get('numero', ''),
-        updated_data.get('titulo', ''),
-        updated_data.get('tipo_nombre', ''),
-        updated_data.get('categoria_nombre', ''),
-        updated_data.get('vigente', True),
-        updated_data.get('fecha', ''),
-        updated_data.get('resumen_ia', ''),
-        db_id
-    ))
+    
+    # Construir query dinámica para actualizar solo los campos proporcionados
+    fields = []
+    values = []
+    
+    for key in ['numero', 'titulo', 'tipo_nombre', 'categoria_nombre', 'vigente', 'fecha', 'resumen_ia', 'referencias']:
+        if key in updated_data:
+            fields.append(f"{key} = ?")
+            values.append(updated_data[key])
+            
+    if not fields:
+        return
+        
+    values.append(db_id)
+    query = f"UPDATE normativas SET {', '.join(fields)} WHERE id = ?"
+    
+    cursor.execute(query, tuple(values))
     conn.commit()
     conn.close()
     
