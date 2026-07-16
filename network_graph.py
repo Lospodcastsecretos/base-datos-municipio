@@ -5,7 +5,7 @@ import os
 
 DB_PATH = "normativas.db"
 
-def generate_network_graph():
+def generate_network_graph(only_complex=False):
     """Generates an HTML network graph of the documents and their references."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -59,7 +59,7 @@ def generate_network_graph():
                 pass
         
         # Fallback a referencias simples si no hay relaciones complejas
-        elif referencias_str:
+        elif referencias_str and not only_complex:
             try:
                 refs = json.loads(referencias_str)
                 if isinstance(refs, list):

@@ -349,11 +349,26 @@ with tab5:
             
         st.dataframe(df_rels.style.map(highlight_action, subset=['Acción Jurídica']), use_container_width=True)
         
-        st.download_button(
-            label="📥 Exportar Relaciones (CSV)",
-            data=df_rels.to_csv(index=False).encode('utf-8'),
-            file_name='relaciones_juridicas.csv',
-            mime='text/csv'
-        )
+        col_csv, _ = st.columns([1, 4])
+        with col_csv:
+            st.download_button(
+                label="📥 Exportar Relaciones (CSV)",
+                data=df_rels.to_csv(index=False).encode('utf-8'),
+                file_name='relaciones_juridicas.csv',
+                mime='text/csv'
+            )
+            
+        st.divider()
+        st.subheader("🕸️ Mapa de Relaciones Jurídicas Puras")
+        st.write("Este mapa excluye las menciones simples y **sólo muestra normativas que se modifican, derogan o reglamentan entre sí**.")
+        if st.button("🔄 Generar Mapa de Acciones", type="primary"):
+            with st.spinner("Dibujando conexiones complejas..."):
+                from network_graph import generate_network_graph
+                html_data_complex = generate_network_graph(only_complex=True)
+                st.session_state['graph_html_complex'] = html_data_complex
+                
+        if 'graph_html_complex' in st.session_state:
+            import streamlit.components.v1 as components
+            components.html(st.session_state['graph_html_complex'], height=650)
     else:
         st.info("Aún no se han detectado relaciones jurídicas complejas. Recuerda usar DeepSeek para procesar o escanear documentos y detectar si modifican o derogan a otros.")
