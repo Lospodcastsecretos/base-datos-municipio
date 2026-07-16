@@ -13,8 +13,8 @@ def generate_network_graph():
     rows = cursor.fetchall()
     conn.close()
 
-    # Create network with search/filter UI enabled
-    net = Network(height="600px", width="100%", bgcolor="#222222", font_color="white", directed=True, select_menu=True, filter_menu=True, cdn_resources="remote")
+    # Create network
+    net = Network(height="600px", width="100%", bgcolor="#222222", font_color="white", directed=True, cdn_resources="remote")
     net.force_atlas_2based() # Use a physics engine good for interconnected networks
 
     # Dictionary to quickly find node IDs by 'numero'
