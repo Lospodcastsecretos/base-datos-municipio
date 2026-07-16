@@ -19,17 +19,14 @@ def generate_network_graph():
 
     # Dictionary to quickly find node IDs by 'numero'
     numero_to_id = {}
-    
-    # Add nodes
     for row in rows:
         db_id, numero, titulo, referencias = row
         numero_to_id[str(numero).strip()] = db_id
-        
-        label = f"Norma {numero}" if numero else f"ID {db_id}"
-        title = f"{label}\n{titulo}"
-        net.add_node(db_id, label=label, title=title, color="#4CAF50")
 
-    # Add edges
+    # 1. Determine which nodes actually have connections
+    connected_nodes = set()
+    edges_to_add = []
+    
     for row in rows:
         db_id, numero, titulo, referencias_str = row
         if not referencias_str:
@@ -43,9 +40,25 @@ def generate_network_graph():
                     ref = str(ref).strip()
                     if ref in numero_to_id:
                         target_id = numero_to_id[ref]
-                        net.add_edge(db_id, target_id, color="#888888")
+                        # Don't connect to itself
+                        if target_id != db_id:
+                            edges_to_add.append((db_id, target_id))
+                            connected_nodes.add(db_id)
+                            connected_nodes.add(target_id)
         except:
             pass # Ignore malformed references
+
+    # 2. Add only connected nodes
+    for row in rows:
+        db_id, numero, titulo, referencias = row
+        if db_id in connected_nodes:
+            label = f"Norma {numero}" if numero else f"ID {db_id}"
+            title = f"{label}\n{titulo}"
+            net.add_node(db_id, label=label, title=title, color="#4CAF50")
+
+    # 3. Add the edges
+    for source, target in edges_to_add:
+        net.add_edge(source, target, color="#888888")
 
     # Save to HTML file
     html_file = "graph.html"
