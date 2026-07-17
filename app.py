@@ -190,8 +190,8 @@ with tab2:
         if selected_id:
             detail = df[df['id'] == selected_id].iloc[0]
             
-            # Use tabs for View and Edit
-            v_tab, e_tab = st.tabs(["Ver Información", "Editar Registro"])
+            # Use tabs for View, Timeline, and Edit
+            v_tab, t_tab, e_tab = st.tabs(["Ver Información", "📅 Línea de Tiempo y Artículos", "Editar Registro"])
             
             with v_tab:
                 col1, col2 = st.columns(2)
@@ -205,6 +205,13 @@ with tab2:
                     st.markdown(f"**Título Oficial:** {detail['titulo']}")
                     st.markdown(f"**Resumen IA:** {detail['resumen_ia']}")
                 
+                with st.expander("Ver Documento Original Crudo (Sin estructurar)"):
+                    st.text(detail['texto_completo'])
+                if st.button("🗑️ Eliminar Norma", type="primary", use_container_width=True):
+                    database.delete_normativa(int(selected_id))
+                    st.success("Norma eliminada exitosamente. Actualiza la tabla.")
+            
+            with t_tab:
                 st.subheader("Estructura de la Norma y Línea de Tiempo")
                 
                 # Selector de fecha para línea de tiempo
@@ -240,12 +247,6 @@ with tab2:
                                     st.caption(f"*Texto:* {h['texto'][:250]}...")
                 else:
                     st.info("Este documento no está estructurado en artículos o no estaba vigente en la fecha seleccionada.")
-                
-                with st.expander("Ver Documento Original Crudo (Sin estructurar)"):
-                    st.text(detail['texto_completo'])
-                if st.button("🗑️ Eliminar Norma", type="primary", use_container_width=True):
-                    database.delete_normativa(int(selected_id))
-                    st.success("Norma eliminada exitosamente. Actualiza la tabla.")
             
             with e_tab:
                 with st.form("edit_form"):
