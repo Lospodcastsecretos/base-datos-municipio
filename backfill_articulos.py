@@ -1,8 +1,8 @@
 import sqlite3
 import json
 import time
-from ai_extractor_openai import extract_metadata_and_summary as extract_openai
-from ai_extractor_deepseek import extract_metadata_and_summary as extract_deepseek
+from ai_extractor_openai import extract_metadata_and_summary_openai as extract_openai
+from ai_extractor_deepseek import extract_metadata_and_summary_deepseek as extract_deepseek
 import os
 
 # Script para segmentar documentos antiguos usando la IA (OpenAI o DeepSeek)
