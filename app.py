@@ -132,6 +132,13 @@ with tab2:
             st.success("Base de datos reiniciada. Refresca la página.")
         if col_n.button("No, cancelar"):
             st.session_state.show_reset_confirm = False
+            
+    # Botón para retroactivo
+    if st.button("🤖 Segmentar Artículos de Documentos Antiguos (OpenAI)"):
+        with st.spinner("Llamando a OpenAI para estructurar documentos antiguos... Revisa la consola negra para ver el progreso detallado. Puede tardar varios minutos."):
+            import subprocess
+            subprocess.Popen(["venv\\Scripts\\python.exe", "backfill_articulos.py", "--engine", "OpenAI"])
+            st.success("¡Proceso iniciado en segundo plano! Revisa la consola negra. Los resultados irán apareciendo a medida que termine cada documento.")
     
     normativas = database.get_all_normativas()
     
@@ -189,9 +196,18 @@ with tab2:
                     st.markdown(f"**Título Oficial:** {detail['titulo']}")
                     st.markdown(f"**Resumen IA:** {detail['resumen_ia']}")
                 
-                with st.expander("Ver Texto Completo Extraído"):
+                st.subheader("Estructura de la Norma")
+                articulos_db = database.get_articulos_por_norma(int(selected_id))
+                if articulos_db:
+                    st.success(f"La IA estructuró este documento en {len(articulos_db)} artículos/secciones.")
+                    for art in articulos_db:
+                        with st.expander(f"Artículo {art['numero']}"):
+                            st.write(art['texto'])
+                else:
+                    st.info("Este documento no está estructurado en artículos o aún no ha sido escaneado.")
+                
+                with st.expander("Ver Documento Original Crudo (Sin estructurar)"):
                     st.text(detail['texto_completo'])
-                    
                 if st.button("🗑️ Eliminar Norma", type="primary", use_container_width=True):
                     database.delete_normativa(int(selected_id))
                     st.success("Norma eliminada exitosamente. Actualiza la tabla.")

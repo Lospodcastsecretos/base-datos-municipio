@@ -23,6 +23,8 @@ class NormativaMetadata(BaseModel):
     url_detalle: str = Field(description="El link original al sistema viejo de la municipalidad, si está presente en el documento.")
     texto_consolidado: str = Field(description="El texto de la norma con modificaciones aplicadas, si se menciona. Sino, dejar igual al original o vacío.")
     resumen_ia: str = Field(description="Un resumen de exactamente 3 renglones generado por la Inteligencia Artificial explicando de qué trata.")
+    relaciones_juridicas: list = Field(description="Lista de objetos describiendo la acción sobre otras normas (modifica, deroga, etc).")
+    articulos: list = Field(description="Lista de objetos con número y texto de cada artículo de la norma.")
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -52,7 +54,25 @@ def extract_metadata_and_summary(texto: str) -> dict:
       "fecha": "YYYY-MM-DD",
       "url_detalle": "string",
       "texto_consolidado": "string",
-      "resumen_ia": "string (resumen de exactamente 3 renglones)"
+      "resumen_ia": "string (resumen de exactamente 3 renglones)",
+      "referencias": ["123", "456"],
+      "relaciones_juridicas": [
+        {{
+          "norma_destino": "123",
+          "accion": "modifica",
+          "detalle": "modifica el art 3"
+        }}
+      ],
+      "articulos": [
+        {{
+          "numero": "1",
+          "texto": "Modificase el articulo 3 de la ordenanza 123..."
+        }},
+        {{
+          "numero": "2",
+          "texto": "Comuniquese, publiquese y archivese."
+        }}
+      ]
     }}
 
     Texto del documento:

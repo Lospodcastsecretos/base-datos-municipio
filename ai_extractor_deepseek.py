@@ -41,6 +41,16 @@ def extract_metadata_and_summary_deepseek(texto: str) -> dict:
           "accion": "modifica",
           "detalle": "modifica el art 3"
         }
+      ],
+      "articulos": [
+        {
+          "numero": "1",
+          "texto": "Modificase el articulo 3 de la ordenanza 123..."
+        },
+        {
+          "numero": "2",
+          "texto": "Comuniquese, publiquese y archivese."
+        }
       ]
     }
     '''
@@ -52,6 +62,7 @@ def extract_metadata_and_summary_deepseek(texto: str) -> dict:
     El campo 'relaciones_juridicas' debe ser una lista de objetos describiendo la acción exacta que esta norma ejerce sobre otras. 
     Las acciones permitidas son: "modifica", "sustituye", "deroga total", "deroga parcial", "incorpora", "suprime", "reglamenta", "prorroga", "suspende", "complementa", "remite a", "corrige", "aprueba anexo".
     Si no hay relaciones claras, devuelve una lista vacía [].
+    El campo 'articulos' debe contener una lista estructurada donde cada elemento represente un artículo de la norma. Extrae el texto completo de cada artículo con precisión. Si la norma no está dividida en artículos o es un texto único, incluye todo el texto en un solo elemento con numero "Único".
     El JSON debe tener exactamente esta estructura y tipos de datos:
     {schema_ejemplo}
     """

@@ -39,6 +39,17 @@ def init_db():
     if 'relaciones_juridicas' not in columns:
         cursor.execute("ALTER TABLE normativas ADD COLUMN relaciones_juridicas TEXT")
         
+    # Crear tabla de articulos
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS articulos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            normativa_id INTEGER,
+            numero TEXT,
+            texto TEXT,
+            FOREIGN KEY(normativa_id) REFERENCES normativas(id)
+        )
+    ''')
+        
     conn.commit()
     conn.close()
 
@@ -61,7 +72,8 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
     else:
         refs_str = str(refs)
         
-    # Asegurar que relaciones sea un string JSON
+    # Check if 'relaciones_juridicas' is present
+    rels_str = '[]'
     rels = metadata.get('relaciones_juridicas', [])
     if isinstance(rels, list):
         rels_str = json.dumps(rels)
@@ -69,11 +81,8 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
         rels_str = str(rels)
         
     cursor.execute('''
-        INSERT INTO normativas (
-            numero, titulo, resumen, tipo_nombre, categoria_nombre, 
-            vigente, fecha, url_detalle, texto_completo, 
-            texto_consolidado, resumen_ia, archivo_origen, referencias, relaciones_juridicas
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO normativas (numero, titulo, resumen, tipo_nombre, categoria_nombre, vigente, fecha, url_detalle, texto_completo, texto_consolidado, resumen_ia, archivo_origen, referencias, relaciones_juridicas)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         metadata.get('numero', ''),
         metadata.get('titulo', ''),
@@ -90,7 +99,20 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
         refs_str,
         rels_str
     ))
-    db_id = cursor.lastrowid
+    normativa_id = cursor.lastrowid
+    
+    # Insertar articulos si existen
+    articulos = metadata.get('articulos', [])
+    if isinstance(articulos, list):
+        for art in articulos:
+            num_art = art.get('numero', '')
+            txt_art = art.get('texto', '')
+            if txt_art:
+                cursor.execute('''
+                    INSERT INTO articulos (normativa_id, numero, texto)
+                    VALUES (?, ?, ?)
+                ''', (normativa_id, num_art, txt_art))
+    
     conn.commit()
     conn.close()
 
@@ -164,22 +186,31 @@ def update_normativa(db_id: int, updated_data: dict):
     except Exception as e:
         print(f"Error updating ChromaDB metadata for {db_id}: {e}")
 
-def delete_normativa(db_id: int):
-    """Deletes a document from both SQLite and ChromaDB."""
-    # Delete from SQLite
+def delete_normativa(id_normativa: int):
+    """Deletes a document from SQLite and ChromaDB by ID."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM normativas WHERE id = ?', (db_id,))
+    cursor.execute("DELETE FROM normativas WHERE id = ?", (id_normativa,))
+    cursor.execute("DELETE FROM articulos WHERE normativa_id = ?", (id_normativa,))
     conn.commit()
     conn.close()
     
-    # Delete from ChromaDB
     try:
         chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
-        collection = chroma_client.get_collection(name="normativas_vectores")
-        collection.delete(ids=[str(db_id)])
+        collection = chroma_client.get_or_create_collection(name="normativas_vectores")
+        collection.delete(ids=[str(id_normativa)])
     except Exception as e:
-        print(f"Error deleting from ChromaDB {db_id}: {e}")
+        print(f"Error borrando de ChromaDB: {e}")
+
+def get_articulos_por_norma(normativa_id: int) -> list[dict]:
+    """Retrieves all articles for a given document."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM articulos WHERE normativa_id = ? ORDER BY id ASC", (normativa_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 def reset_database():
     """Wipes all data from SQLite and ChromaDB."""
