@@ -25,7 +25,7 @@ with tab1:
     # Engine selector
     st.subheader("Configuración de IA")
     ia_engine = st.radio("Selecciona el motor de Inteligencia Artificial para extraer los datos:", 
-                         options=["DeepSeek (Recomendado - Menos límites)", "Google Gemini (Plan Gratuito)"])
+                         options=["DeepSeek (Recomendado - Menos límites)", "OpenAI GPT-4o-mini (Rápido y Estable)", "Google Gemini (Plan Gratuito)"])
     
     if st.button("Procesar Archivos", type="primary"):
         if not uploaded_files:
@@ -34,6 +34,8 @@ with tab1:
             st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env")
         elif ia_engine == "DeepSeek (Recomendado - Menos límites)" and not os.getenv("DEEPSEEK_API_KEY"):
             st.error("⚠️ Falta configurar DEEPSEEK_API_KEY en el archivo .env")
+        elif "OpenAI" in ia_engine and not os.getenv("OPENAI_API_KEY"):
+            st.error("⚠️ Falta configurar OPENAI_API_KEY en el archivo .env")
         else:
             progress_bar = st.progress(0)
             status_text = st.empty()
@@ -45,7 +47,7 @@ with tab1:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as tmp_file:
                         tmp_file.write(file.read())
                         tmp_path = tmp_file.name
-
+ 
                     # 1. Extract Text
                     texto_completo = process_document(tmp_path)
                     
@@ -54,10 +56,13 @@ with tab1:
                         continue
                     
                     # 2. Extract Metadata via AI
-                    status_text.text(f"Extrayendo metadatos con IA ({'DeepSeek' if 'DeepSeek' in ia_engine else 'Gemini'}): {file.name}")
+                    status_text.text(f"Extrayendo metadatos con IA ({ia_engine}): {file.name}")
                     if "DeepSeek" in ia_engine:
                         from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
                         metadata = extract_metadata_and_summary_deepseek(texto_completo)
+                    elif "OpenAI" in ia_engine:
+                        from ai_extractor_openai import extract_metadata_and_summary_openai
+                        metadata = extract_metadata_and_summary_openai(texto_completo)
                     else:
                         metadata = extract_metadata_and_summary(texto_completo)
                     
@@ -79,7 +84,7 @@ with tab1:
                             import time
                             time.sleep(60)
                         else:
-                            # DeepSeek es mucho más permisivo, solo esperamos 1 segundo por cortesía
+                            # OpenAI y DeepSeek son rápidos
                             import time
                             time.sleep(1)
                             
@@ -266,14 +271,13 @@ with tab4:
                 st.session_state['graph_html'] = html_data
                 
         st.divider()
-        st.write("**¿Faltan conexiones de documentos viejos?**")
-        st.write("Usa DeepSeek para escanear documentos que fueron subidos antes de implementar el mapa.")
+        st.write("Usa DeepSeek u OpenAI para escanear documentos que fueron subidos antes de implementar el mapa.")
         if st.button("🔍 Escanear documentos antiguos", use_container_width=True):
-            if not os.getenv("DEEPSEEK_API_KEY"):
-                st.error("⚠️ Necesitas configurar DEEPSEEK_API_KEY en .env")
+            api_choice = "DeepSeek" if os.getenv("DEEPSEEK_API_KEY") else ("OpenAI" if os.getenv("OPENAI_API_KEY") else None)
+            if not api_choice:
+                st.error("⚠️ Necesitas configurar DEEPSEEK_API_KEY u OPENAI_API_KEY en .env")
             else:
                 normativas = database.get_all_normativas()
-                from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
                 import json
                 
                 progress_bar = st.progress(0)
@@ -283,9 +287,15 @@ with tab4:
                 viejas = [n for n in normativas if not n.get('referencias') or n.get('referencias') == '[]' or n.get('referencias') == 'None']
                 
                 for i, norma in enumerate(viejas):
-                    status_text.text(f"Escaneando Norma {norma['numero']} ({i+1}/{len(viejas)})...")
+                    status_text.text(f"Escaneando Norma {norma['numero']} ({i+1}/{len(viejas)}) con {api_choice}...")
                     try:
-                        metadata = extract_metadata_and_summary_deepseek(norma['texto_completo'])
+                        if api_choice == "DeepSeek":
+                            from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
+                            metadata = extract_metadata_and_summary_deepseek(norma['texto_completo'])
+                        else:
+                            from ai_extractor_openai import extract_metadata_and_summary_openai
+                            metadata = extract_metadata_and_summary_openai(norma['texto_completo'])
+                            
                         refs = metadata.get('referencias', [])
                         rels = metadata.get('relaciones_juridicas', [])
                         
@@ -299,7 +309,7 @@ with tab4:
                     progress_bar.progress((i + 1) / len(viejas))
                 
                 status_text.text("¡Escaneo completo! Actualiza el mapa para ver las nuevas conexiones.")
-                st.success(f"Se escanearon {len(viejas)} documentos antiguos.")
+                st.success(f"Se escanearon {len(viejas)} documentos antiguos con {api_choice}.")
                 
     with col_g1:
         if 'graph_html' in st.session_state:
