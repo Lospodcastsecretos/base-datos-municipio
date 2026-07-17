@@ -148,8 +148,8 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
     collection.add(
         embeddings=[embedding],
         documents=[texto_completo], # Almacenamos el texto para que lo devuelva al buscar
-        metadatas=[{"db_id": db_id, "numero": metadata.get('numero', ''), "titulo": metadata.get('titulo', '')}],
-        ids=[str(db_id)]
+        metadatas=[{"db_id": normativa_id, "numero": metadata.get('numero', ''), "titulo": metadata.get('titulo', '')}],
+        ids=[str(normativa_id)]
     )
 
 def search_normativas(query_embedding: list[float], n_results: int = 5):
