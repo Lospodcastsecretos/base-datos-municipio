@@ -190,8 +190,8 @@ with tab2:
         if selected_id:
             detail = df[df['id'] == selected_id].iloc[0]
             
-            # Use tabs for View, Timeline, and Edit
-            v_tab, t_tab, e_tab = st.tabs(["Ver Información", "📅 Línea de Tiempo y Artículos", "Editar Registro"])
+            # Use tabs for View, Timeline, Relations, and Edit
+            v_tab, t_tab, r_tab, e_tab = st.tabs(["Ver Información", "📅 Línea de Tiempo y Artículos", "🔗 Documentos Relacionados", "Editar Registro"])
             
             with v_tab:
                 col1, col2 = st.columns(2)
@@ -247,6 +247,88 @@ with tab2:
                                     st.caption(f"*Texto:* {h['texto'][:250]}...")
                 else:
                     st.info("Este documento no está estructurado en artículos o no estaba vigente en la fecha seleccionada.")
+            
+            with r_tab:
+                st.subheader("Documentos Relacionados")
+                
+                # 1. Relaciones Salientes (Normas que este documento afecta)
+                st.markdown("### 📤 Normas que esta norma afecta (Relaciones Salientes)")
+                salientes = []
+                if detail['relaciones_juridicas']:
+                    try:
+                        salientes = json.loads(detail['relaciones_juridicas'])
+                    except:
+                        pass
+                
+                if salientes:
+                    for rel in salientes:
+                        dest = rel.get('norma_destino', 'N/A')
+                        accion = rel.get('accion', 'afecta').upper()
+                        desc = rel.get('detalle', '')
+                        
+                        # Definir colores según acción
+                        if "DEROGA" in accion:
+                            color = "red"
+                        elif "MODIFICA" in accion or "SUSTITUYE" in accion:
+                            color = "orange"
+                        elif "INCORPORA" in accion:
+                            color = "green"
+                        else:
+                            color = "blue"
+                            
+                        st.markdown(f"- Esta norma **:{color}[{accion}]** a la **Norma Nº {dest}**")
+                        if desc:
+                            st.caption(f"  *Detalle:* {desc}")
+                else:
+                    st.info("Esta norma no ejerce ninguna acción legal explícita sobre otras normas.")
+                    
+                # 2. Relaciones Entrantes (Normas que afectan a este documento)
+                st.markdown("### 📥 Normas que afectan a esta norma (Relaciones Entrantes)")
+                
+                # Consultar SQLite para encontrar otras normas que apunten a esta
+                import sqlite3
+                conn = sqlite3.connect(database.DB_PATH)
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, numero, tipo_nombre, relaciones_juridicas FROM normativas WHERE id != ?", (int(selected_id),))
+                all_other_norms = cursor.fetchall()
+                conn.close()
+                
+                entrantes = []
+                target_num = str(detail['numero'])
+                for row in all_other_norms:
+                    other_id, other_num, other_tipo, other_rels_str = row
+                    if other_rels_str:
+                        try:
+                            other_rels = json.loads(other_rels_str)
+                            for r in other_rels:
+                                if str(r.get('norma_destino')) == target_num:
+                                    entrantes.append({
+                                        "id": other_id,
+                                        "numero": other_num,
+                                        "tipo": other_tipo,
+                                        "accion": r.get('accion', 'afecta').upper(),
+                                        "detalle": r.get('detalle', '')
+                                    })
+                        except:
+                            pass
+                            
+                if entrantes:
+                    for ent in entrantes:
+                        accion = ent['accion']
+                        if "DEROGA" in accion:
+                            color = "red"
+                        elif "MODIFICA" in accion or "SUSTITUYE" in accion:
+                            color = "orange"
+                        elif "INCORPORA" in accion:
+                            color = "green"
+                        else:
+                            color = "blue"
+                            
+                        st.markdown(f"- La norma **{ent['tipo']} Nº {ent['numero']}** **:{color}[{accion}]** a esta norma.")
+                        if ent['detalle']:
+                            st.caption(f"  *Detalle:* {ent['detalle']}")
+                else:
+                    st.info("Ninguna otra norma cargada afecta a esta norma actualmente.")
             
             with e_tab:
                 with st.form("edit_form"):
