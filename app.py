@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import shutil
 import tempfile
+import datetime
 from document_processor import process_document
 from ai_extractor import extract_metadata_and_summary, generate_embedding
 import database
@@ -134,11 +135,19 @@ with tab2:
             st.session_state.show_reset_confirm = False
             
     # Botón para retroactivo
-    if st.button("🤖 Segmentar Artículos de Documentos Antiguos (OpenAI)"):
-        with st.spinner("Llamando a OpenAI para estructurar documentos antiguos... Revisa la consola negra para ver el progreso detallado. Puede tardar varios minutos."):
-            import subprocess
-            subprocess.Popen(["venv\\Scripts\\python.exe", "backfill_articulos.py", "--engine", "OpenAI"])
-            st.success("¡Proceso iniciado en segundo plano! Revisa la consola negra. Los resultados irán apareciendo a medida que termine cada documento.")
+    col_back1, col_back2 = st.columns(2)
+    with col_back1:
+        if st.button("🤖 Segmentar Artículos de Documentos Antiguos (OpenAI)", use_container_width=True):
+            with st.spinner("Llamando a OpenAI para estructurar documentos antiguos... Revisa la consola negra para ver el progreso detallado. Puede tardar varios minutos."):
+                import subprocess
+                subprocess.Popen(["venv\\Scripts\\python.exe", "backfill_articulos.py", "--engine", "OpenAI"])
+                st.success("¡Proceso de segmentación iniciado en segundo plano! Revisa la consola negra.")
+    with col_back2:
+        if st.button("⛓️ Calcular Vigencias y Consolidar Textos (OpenAI)", use_container_width=True):
+            with st.spinner("Llamando a OpenAI para consolidar textos modificados... Revisa la consola negra para ver el progreso detallado."):
+                import subprocess
+                subprocess.Popen(["venv\\Scripts\\python.exe", "consolidator.py"])
+                st.success("¡Proceso de consolidación iniciado en segundo plano! Revisa la consola negra.")
     
     normativas = database.get_all_normativas()
     
@@ -196,15 +205,41 @@ with tab2:
                     st.markdown(f"**Título Oficial:** {detail['titulo']}")
                     st.markdown(f"**Resumen IA:** {detail['resumen_ia']}")
                 
-                st.subheader("Estructura de la Norma")
-                articulos_db = database.get_articulos_por_norma(int(selected_id))
+                st.subheader("Estructura de la Norma y Línea de Tiempo")
+                
+                # Selector de fecha para línea de tiempo
+                usar_timeline = st.checkbox("🔍 Habilitar Línea de Tiempo Histórica")
+                fecha_filtro = None
+                if usar_timeline:
+                    selected_date = st.date_input("Ver estado de los artículos en esta fecha:", value=datetime.date.today())
+                    fecha_filtro = selected_date.strftime('%Y-%m-%d')
+                    st.info(f"Mostrando versión de los artículos tal cual regían el {fecha_filtro}.")
+                
+                articulos_db = database.get_articulos_por_norma(int(selected_id), fecha=fecha_filtro)
                 if articulos_db:
-                    st.success(f"La IA estructuró este documento en {len(articulos_db)} artículos/secciones.")
+                    st.success(f"Se encontraron {len(articulos_db)} artículos/secciones activos.")
                     for art in articulos_db:
-                        with st.expander(f"Artículo {art['numero']}"):
+                        # Badge de estado temporal
+                        if not art.get('fecha_hasta'):
+                            badge = f"🟢 Vigente hoy (v{art['version_numero']})"
+                        else:
+                            badge = f"🔴 Modificado/Derogado (Vigente {art['fecha_desde']} a {art['fecha_hasta']})"
+                            
+                        with st.expander(f"Artículo {art['numero']} — {badge}"):
                             st.write(art['texto'])
+                            
+                            # Mostrar historial de versiones si hay más de una
+                            historial = database.get_historial_articulo(int(selected_id), art['numero'])
+                            if len(historial) > 1:
+                                st.markdown("---")
+                                st.markdown("**Historial de versiones de este artículo:**")
+                                for h in historial:
+                                    ver_badge = "Creación original" if h['version_numero'] == 1 else f"Modificación por {h['fuente_norma_tipo']} Nº {h['fuente_norma_numero']}"
+                                    periodo = f"Vigencia: {h['fecha_desde']}" + (f" hasta {h['fecha_hasta']}" if h['fecha_hasta'] else " en adelante (Activo)")
+                                    st.markdown(f"* **v{h['version_numero']}** — *{ver_badge}* ({periodo})")
+                                    st.caption(f"*Texto:* {h['texto'][:250]}...")
                 else:
-                    st.info("Este documento no está estructurado en artículos o aún no ha sido escaneado.")
+                    st.info("Este documento no está estructurado en artículos o no estaba vigente en la fecha seleccionada.")
                 
                 with st.expander("Ver Documento Original Crudo (Sin estructurar)"):
                     st.text(detail['texto_completo'])

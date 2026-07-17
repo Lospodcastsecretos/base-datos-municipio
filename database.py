@@ -39,15 +39,39 @@ def init_db():
     if 'relaciones_juridicas' not in columns:
         cursor.execute("ALTER TABLE normativas ADD COLUMN relaciones_juridicas TEXT")
         
-    # Crear tabla de articulos
+    # Crear tabla de articulos si no existe
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS articulos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             normativa_id INTEGER,
             numero TEXT,
             texto TEXT,
+            version_numero INTEGER DEFAULT 1,
+            fecha_desde TEXT,
+            fecha_hasta TEXT,
+            fuente_normativa_id INTEGER,
             FOREIGN KEY(normativa_id) REFERENCES normativas(id)
         )
+    ''')
+    
+    # Auto-migration: check if versioning columns exist in articulos
+    cursor.execute("PRAGMA table_info(articulos)")
+    art_columns = [col[1] for col in cursor.fetchall()]
+    if 'version_numero' not in art_columns:
+        cursor.execute("ALTER TABLE articulos ADD COLUMN version_numero INTEGER DEFAULT 1")
+    if 'fecha_desde' not in art_columns:
+        cursor.execute("ALTER TABLE articulos ADD COLUMN fecha_desde TEXT")
+    if 'fecha_hasta' not in art_columns:
+        cursor.execute("ALTER TABLE articulos ADD COLUMN fecha_hasta TEXT")
+    if 'fuente_normativa_id' not in art_columns:
+        cursor.execute("ALTER TABLE articulos ADD COLUMN fuente_normativa_id INTEGER")
+        
+    # Migrar registros viejos de articulos para asignarles fecha_desde y fuente_normativa_id por defecto
+    cursor.execute('''
+        UPDATE articulos 
+        SET fecha_desde = (SELECT COALESCE(fecha, '2000-01-01') FROM normativas WHERE normativas.id = articulos.normativa_id),
+            fuente_normativa_id = normativa_id
+        WHERE fecha_desde IS NULL OR fuente_normativa_id IS NULL
     ''')
         
     conn.commit()
@@ -103,15 +127,16 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
     
     # Insertar articulos si existen
     articulos = metadata.get('articulos', [])
+    fecha_norma = metadata.get('fecha', '') or '2000-01-01'
     if isinstance(articulos, list):
         for art in articulos:
             num_art = art.get('numero', '')
             txt_art = art.get('texto', '')
             if txt_art:
                 cursor.execute('''
-                    INSERT INTO articulos (normativa_id, numero, texto)
-                    VALUES (?, ?, ?)
-                ''', (normativa_id, num_art, txt_art))
+                    INSERT INTO articulos (normativa_id, numero, texto, version_numero, fecha_desde, fuente_normativa_id)
+                    VALUES (?, ?, ?, 1, ?, ?)
+                ''', (normativa_id, num_art, txt_art, fecha_norma, normativa_id))
     
     conn.commit()
     conn.close()
@@ -202,12 +227,43 @@ def delete_normativa(id_normativa: int):
     except Exception as e:
         print(f"Error borrando de ChromaDB: {e}")
 
-def get_articulos_por_norma(normativa_id: int) -> list[dict]:
-    """Retrieves all articles for a given document."""
+def get_articulos_por_norma(normativa_id: int, fecha: str = None) -> list[dict]:
+    """Retrieves all articles for a given document, optionally filtering by date of validity."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM articulos WHERE normativa_id = ? ORDER BY id ASC", (normativa_id,))
+    if fecha:
+        cursor.execute('''
+            SELECT * FROM articulos 
+            WHERE normativa_id = ? 
+              AND (fecha_desde <= ? OR fecha_desde IS NULL OR fecha_desde = '')
+              AND (fecha_hasta > ? OR fecha_hasta IS NULL OR fecha_hasta = '')
+            ORDER BY CAST(numero AS INTEGER), numero ASC, version_numero ASC
+        ''', (normativa_id, fecha, fecha))
+    else:
+        # Por defecto, traer las versiones vigentes hoy
+        cursor.execute('''
+            SELECT * FROM articulos 
+            WHERE normativa_id = ? 
+              AND (fecha_hasta IS NULL OR fecha_hasta = '')
+            ORDER BY CAST(numero AS INTEGER), numero ASC, version_numero ASC
+        ''', (normativa_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def get_historial_articulo(normativa_id: int, numero_articulo: str) -> list[dict]:
+    """Retrieves all versions of a specific article for history tracking."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT a.*, n.numero as fuente_norma_numero, n.tipo_nombre as fuente_norma_tipo
+        FROM articulos a
+        LEFT JOIN normativas n ON a.fuente_normativa_id = n.id
+        WHERE a.normativa_id = ? AND a.numero = ?
+        ORDER BY a.version_numero ASC
+    ''', (normativa_id, numero_articulo))
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
