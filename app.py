@@ -20,7 +20,7 @@ with tab1:
     st.header("Cargar y Procesar Normativas")
     st.write("Sube archivos PDF o DOCX. El sistema extraerá el texto, utilizará IA para entender los metadatos y los guardará en la base de datos.")
     
-    uploaded_files = st.file_uploader("Seleccionar archivos", type=["pdf", "docx"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Seleccionar archivos", type=["pdf", "docx", "doc", "jpg", "jpeg", "png"], accept_multiple_files=True)
     
     # Engine selector
     st.subheader("Configuración de IA")
@@ -49,7 +49,7 @@ with tab1:
                         tmp_path = tmp_file.name
  
                     # 1. Extract Text
-                    texto_completo = process_document(tmp_path)
+                    texto_completo = process_document(tmp_path, ia_engine)
                     
                     if not texto_completo:
                         st.error(f"No se pudo extraer texto de {file.name}")
