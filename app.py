@@ -572,52 +572,49 @@ with tab4:
             elif not query and tipo_busqueda == "Palabras Clave Exactas (Búsqueda por Texto Completo)" and filtro_tipo == "Todos" and not filtro_anio and filtro_estado == "Todos" and filtro_categoria == "Todos":
                 st.warning("⚠️ Ingresa un término de búsqueda o selecciona al menos un filtro.")
             elif tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
-                if not os.getenv("GOOGLE_API_KEY"):
-                    st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env para generar vectores de búsqueda.")
-                else:
-                    with st.spinner("Generando vector de búsqueda y consultando ChromaDB..."):
-                        try:
-                            # Generar embedding para la query
-                            query_embedding = generate_embedding(query)
-                            results = database.search_normativas(query_embedding, n_results=300) # Ampliamos más para que post-filtrado no quede en 0
+                with st.spinner("Generando vector de búsqueda y consultando ChromaDB..."):
+                    try:
+                        # Generar embedding para la query
+                        query_embedding = generate_embedding(query)
+                        results = database.search_normativas(query_embedding, n_results=300) # Ampliamos más para que post-filtrado no quede en 0
+                        
+                        if results and results['ids'] and len(results['ids'][0]) > 0:
+                            norm_dict = {str(n['id']): n for n in all_norms_for_filters}
+                            filtrados_semantic = []
                             
-                            if results and results['ids'] and len(results['ids'][0]) > 0:
-                                norm_dict = {str(n['id']): n for n in all_norms_for_filters}
-                                filtrados_semantic = []
+                            for i, doc_id in enumerate(results['ids'][0]):
+                                n_data = norm_dict.get(doc_id)
+                                if not n_data: continue
                                 
-                                for i, doc_id in enumerate(results['ids'][0]):
-                                    n_data = norm_dict.get(doc_id)
-                                    if not n_data: continue
+                                # Aplicar filtros
+                                if filtro_tipo != "Todos" and str(n_data.get('tipo_nombre', '')) != filtro_tipo: continue
+                                if filtro_anio and str(filtro_anio) not in str(n_data.get('fecha', '')): continue
+                                if filtro_estado != "Todos":
+                                    is_vigente = bool(n_data.get('vigente'))
+                                    if filtro_estado == "Vigente" and not is_vigente: continue
+                                    if filtro_estado == "No Vigente/Derogada" and is_vigente: continue
+                                if filtro_categoria != "Todos" and str(n_data.get('categoria_nombre', '')) != filtro_categoria: continue
+                                
+                                meta = results['metadatas'][0][i]
+                                texto = results['documents'][0][i]
+                                filtrados_semantic.append({'meta': meta, 'texto': texto})
+                                
+                                if len(filtrados_semantic) >= 15: # Límite final post-filtro
+                                    break
                                     
-                                    # Aplicar filtros
-                                    if filtro_tipo != "Todos" and str(n_data.get('tipo_nombre', '')) != filtro_tipo: continue
-                                    if filtro_anio and str(filtro_anio) not in str(n_data.get('fecha', '')): continue
-                                    if filtro_estado != "Todos":
-                                        is_vigente = bool(n_data.get('vigente'))
-                                        if filtro_estado == "Vigente" and not is_vigente: continue
-                                        if filtro_estado == "No Vigente/Derogada" and is_vigente: continue
-                                    if filtro_categoria != "Todos" and str(n_data.get('categoria_nombre', '')) != filtro_categoria: continue
-                                    
-                                    meta = results['metadatas'][0][i]
-                                    texto = results['documents'][0][i]
-                                    filtrados_semantic.append({'meta': meta, 'texto': texto})
-                                    
-                                    if len(filtrados_semantic) >= 15: # Límite final post-filtro
-                                        break
-                                        
-                                if filtrados_semantic:
-                                    st.success(f"Se encontraron {len(filtrados_semantic)} resultados semánticos relevantes (aplicando filtros).")
-                                    for i, res in enumerate(filtrados_semantic):
-                                        st.markdown(f"### {i+1}. Resultado Semántico")
-                                        st.markdown(f"**Norma Número:** {res['meta'].get('numero', 'N/A')} - **Título:** {res['meta'].get('titulo', 'N/A')}")
-                                        st.markdown(f"**Fragmento:** _{res['texto'][:500]}..._")
-                                        st.divider()
-                                else:
-                                    st.info("Ningún resultado semántico coincidió con los filtros seleccionados.")
+                            if filtrados_semantic:
+                                st.success(f"Se encontraron {len(filtrados_semantic)} resultados semánticos relevantes (aplicando filtros).")
+                                for i, res in enumerate(filtrados_semantic):
+                                    st.markdown(f"### {i+1}. Resultado Semántico")
+                                    st.markdown(f"**Norma Número:** {res['meta'].get('numero', 'N/A')} - **Título:** {res['meta'].get('titulo', 'N/A')}")
+                                    st.markdown(f"**Fragmento:** _{res['texto'][:500]}..._")
+                                    st.divider()
                             else:
-                                st.info("No se encontraron resultados semánticos similares.")
-                        except Exception as e:
-                            st.error(f"Error en la búsqueda semántica: {e}")
+                                st.info("Ningún resultado semántico coincidió con los filtros seleccionados.")
+                        else:
+                            st.info("No se encontraron resultados semánticos similares.")
+                    except Exception as e:
+                        st.error(f"Error en la búsqueda semántica: {e}")
             else:
                 # Búsqueda FTS5 (Texto Completo)
                 with st.spinner("Buscando en la base de datos..."):
