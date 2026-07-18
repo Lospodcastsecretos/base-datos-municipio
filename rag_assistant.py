@@ -39,8 +39,9 @@ def retrieve_context(query: str, n_results: int = 5) -> str:
             print(f"Error en búsqueda FTS RAG: {e}")
             
         contexto_text = ""
+        fuentes = []
         if doc_ids:
-            conn = sqlite3.connect("normativas.db", timeout=15)
+            conn = sqlite3.connect(database.DB_PATH, timeout=15)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
@@ -55,6 +56,8 @@ def retrieve_context(query: str, n_results: int = 5) -> str:
                     numero = row['numero'] or 'S/N'
                     titulo = row['titulo'] or 'Sin título'
                     texto = row['texto_completo'] or ''
+                    
+                    fuentes.append({'id': doc_id, 'tipo': tipo, 'numero': numero, 'titulo': titulo})
                     
                     # Buscar el mejor fragmento
                     texto_lower = texto.lower()
@@ -77,19 +80,19 @@ def retrieve_context(query: str, n_results: int = 5) -> str:
                     contexto_text += fragmento + "\n"
             conn.close()
             
-        return contexto_text
+        return contexto_text, fuentes
     except Exception as e:
         print(f"Error recuperando contexto general: {e}")
-        return ""
+        return "", []
 
-def answer_question_with_rag(query: str, chat_history: list, engine: str = "DeepSeek") -> str:
+def answer_question_with_rag(query: str, chat_history: list, engine: str = "DeepSeek") -> tuple[str, list]:
     """
     Arma el prompt con contexto RAG y el historial, y llama a la API correspondiente.
     """
     load_dotenv()
     
     # 1. Recuperar contexto de ChromaDB
-    contexto = retrieve_context(query)
+    contexto, fuentes = retrieve_context(query)
     
     if not contexto:
         contexto = "No se encontraron normativas relevantes en la base de datos para esta consulta."
@@ -110,15 +113,18 @@ def answer_question_with_rag(query: str, chat_history: list, engine: str = "Deep
     )
 
     # 3. Llamar a la API según el motor elegido
+    respuesta = ""
     try:
         if "DeepSeek" in engine:
-            return call_deepseek(system_prompt, chat_history, query)
+            respuesta = call_deepseek(system_prompt, chat_history, query)
         elif "OpenAI" in engine:
-            return call_openai(system_prompt, chat_history, query)
+            respuesta = call_openai(system_prompt, chat_history, query)
         else: # Gemini
-            return call_gemini(system_prompt, chat_history, query)
+            respuesta = call_gemini(system_prompt, chat_history, query)
     except Exception as e:
-        return f"❌ Error al consultar a {engine}: {str(e)}"
+        respuesta = f"❌ Error al consultar a {engine}: {str(e)}"
+        
+    return respuesta, fuentes
 
 def format_history_for_openai_deepseek(system_prompt, history, new_query):
     messages = [{"role": "system", "content": system_prompt}]
