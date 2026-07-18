@@ -148,16 +148,22 @@ with tab2:
     col_back1, col_back2 = st.columns(2)
     with col_back1:
         if st.button("🤖 Segmentar Artículos de Documentos Antiguos (OpenAI)", use_container_width=True):
-            with st.spinner("Llamando a OpenAI para estructurar documentos antiguos... Revisa la consola negra para ver el progreso detallado. Puede tardar varios minutos."):
-                import subprocess
-                subprocess.Popen([sys.executable, "-u", "backfill_articulos.py", "--engine", "OpenAI"])
-                st.success("¡Proceso de segmentación iniciado en segundo plano! Revisa la consola negra.")
+            if not os.getenv("OPENAI_API_KEY"):
+                st.error("⚠️ Falta configurar OPENAI_API_KEY en el archivo .env para ejecutar este proceso.")
+            else:
+                with st.spinner("Llamando a OpenAI para estructurar documentos antiguos... Revisa la consola negra para ver el progreso detallado. Puede tardar varios minutos."):
+                    import subprocess
+                    subprocess.Popen([sys.executable, "-u", "backfill_articulos.py", "--engine", "OpenAI"])
+                    st.success("¡Proceso de segmentación iniciado en segundo plano! Revisa la consola negra.")
     with col_back2:
         if st.button("⛓️ Calcular Vigencias y Consolidar Textos (OpenAI)", use_container_width=True):
-            with st.spinner("Llamando a OpenAI para consolidar textos modificados... Revisa la consola negra para ver el progreso detallado."):
-                import subprocess
-                subprocess.Popen([sys.executable, "-u", "consolidator.py"])
-                st.success("¡Proceso de consolidación iniciado en segundo plano! Revisa la consola negra.")
+            if not os.getenv("OPENAI_API_KEY"):
+                st.error("⚠️ Falta configurar OPENAI_API_KEY en el archivo .env para ejecutar este proceso.")
+            else:
+                with st.spinner("Llamando a OpenAI para consolidar textos modificados... Revisa la consola negra para ver el progreso detallado."):
+                    import subprocess
+                    subprocess.Popen([sys.executable, "-u", "consolidator.py"])
+                    st.success("¡Proceso de consolidación iniciado en segundo plano! Revisa la consola negra.")
     
     normativas = database.get_all_normativas()
     
