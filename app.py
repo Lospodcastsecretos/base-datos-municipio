@@ -547,7 +547,8 @@ with tab4:
                     normas_filtradas.append(n)
             
             if not normas_filtradas:
-                st.warning("No se encontraron normativas con relaciones registradas en la base de datos.")
+                st.warning("⚠️ No se encontraron normativas con relaciones registradas en la base de datos.")
+                st.info("💡 **Cómo activar las relaciones:** Si acabas de cargar documentos, ve a la pestaña **`🕸️ Mapa de Conexiones (Grafo)`** y haz clic en el botón **`🔄 Generar / Actualizar Mapa`** para que la IA y las expresiones regulares detecten las conexiones entre tus ordenanzas.")
             else:
                 normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in normas_filtradas}
                 
