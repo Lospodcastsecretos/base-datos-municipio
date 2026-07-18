@@ -19,6 +19,11 @@ def initialize_database():
 
 initialize_database()
 
+@st.cache_data(show_spinner=False)
+def get_cached_report_bytes(norma_id: int):
+    import report_generator
+    return report_generator.generate_report(norma_id).getvalue()
+
 def render_buscador_relaciones(all_normativas, key_prefix=""):
     st.info("💡 **Búsqueda por Relaciones:** Permite consultar qué normas ejercieron una acción (modificar, derogar) sobre otra, o qué impactos generó una norma en particular.")
     if not all_normativas:
@@ -316,11 +321,10 @@ with tab2:
                     st.markdown("### Resumen y Metadatos")
                 with col_btn:
                     try:
-                        import report_generator
-                        docx_file = report_generator.generate_report(int(selected_id))
+                        docx_bytes = get_cached_report_bytes(int(selected_id))
                         st.download_button(
                             label="📥 Descargar Informe Completo (.docx)",
-                            data=docx_file,
+                            data=docx_bytes,
                             file_name=f"Informe_{detail['tipo_nombre']}_{detail['numero']}.docx",
                             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                             use_container_width=True,
