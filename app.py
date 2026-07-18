@@ -204,6 +204,24 @@ with tab2:
             v_tab, t_tab, r_tab, e_tab = st.tabs(["Ver Información", "📅 Línea de Tiempo y Artículos", "🔗 Documentos Relacionados", "Editar Registro"])
             
             with v_tab:
+                col_title, col_btn = st.columns([3, 1])
+                with col_title:
+                    st.markdown("### Resumen y Metadatos")
+                with col_btn:
+                    try:
+                        import report_generator
+                        docx_file = report_generator.generate_report(int(selected_id))
+                        st.download_button(
+                            label="📥 Descargar Informe Completo (.docx)",
+                            data=docx_file,
+                            file_name=f"Informe_{detail['tipo_nombre']}_{detail['numero']}.docx",
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            use_container_width=True,
+                            type="primary"
+                        )
+                    except Exception as e:
+                        st.error(f"Error al generar informe: {e}")
+                        
                 col1, col2 = st.columns(2)
                 with col1:
                     st.markdown(f"**Número:** {detail['numero']}")
