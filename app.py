@@ -621,8 +621,48 @@ with tab5:
     st.header("🕸️ Mapa de Conexiones (Grafo)")
     st.write("Visualiza cómo las normativas se referencian entre sí.")
     
-    # Buscador de Relaciones duplicado para comodidad del usuario
-    st.markdown("### 🔍 Consultas de Relaciones Jurídicas")
+    col_g1, col_g2 = st.columns([3, 1])
+    
+    with col_g2:
+        st.subheader("Herramientas")
+        if st.button("🔄 Generar / Actualizar Mapa", type="primary", use_container_width=True):
+            with st.spinner("Dibujando conexiones..."):
+                from network_graph import generate_network_graph
+                html_data = generate_network_graph()
+                st.session_state['graph_html'] = html_data
+                
+        st.divider()
+        st.write("Usa DeepSeek u OpenAI para escanear documentos que fueron subidos antes de implementar el mapa.")
+        if st.button("🔍 Escanear documentos antiguos", use_container_width=True):
+            ia_choice = st.session_state.get("active_ia_engine", "DeepSeek")
+            api_choice = "OpenAI" if "OpenAI" in ia_choice else ("DeepSeek" if "DeepSeek" in ia_choice else "Gemini")
+            
+            # Verificar API Keys
+            if api_choice == "DeepSeek" and not os.getenv("DEEPSEEK_API_KEY"):
+                st.error("⚠️ Falta configurar DEEPSEEK_API_KEY en .env")
+            elif api_choice == "OpenAI" and not os.getenv("OPENAI_API_KEY"):
+                st.error("⚠️ Falta configurar OPENAI_API_KEY en .env")
+            elif api_choice == "Gemini" and not os.getenv("GOOGLE_API_KEY"):
+                st.error("⚠️ Falta configurar GOOGLE_API_KEY en .env")
+            else:
+                with st.spinner(f"Llamando a {api_choice} en segundo plano... Revisa la consola negra para el progreso."):
+                    import subprocess
+                    subprocess.Popen([sys.executable, "-u", "backfill_conexiones.py", "--engine", api_choice])
+                    st.success("¡Escaneo de conexiones iniciado en segundo plano! Sigue el progreso en tiempo real en la consola negra.")
+                
+    with col_g1:
+        if 'graph_html' in st.session_state:
+            import streamlit.components.v1 as components
+            components.html(st.session_state['graph_html'], height=650)
+        else:
+            st.info("👈 Haz clic en 'Generar Mapa' para ver las conexiones.")
+
+with tab6:
+    st.header("⚖️ Relaciones Jurídicas")
+    st.write("Listado detallado de las acciones legales (modificaciones, derogaciones, etc.) que ejercen unas normas sobre otras.")
+    
+    # Buscador de Relaciones en Tab 6
+    st.markdown("### 🔍 Consultas Rápidas de Impacto Jurídico")
     all_normativas = database.get_all_normativas()
     if all_normativas:
         # Filtrar para dejar solo normas con relaciones (origen o destino)
@@ -637,8 +677,7 @@ with tab5:
                         for r in rels:
                             dest = str(r.get('norma_destino', '')).strip().lower()
                             if dest:
-                                sorted_dest = dest
-                                destinos.add(sorted_dest)
+                                destinos.add(dest)
                 except Exception:
                     pass
         
@@ -668,14 +707,14 @@ with tab5:
                 direccion = st.selectbox("Tipo de consulta:", [
                     "¿Qué normas afectaron a... (Impactos Recibidos)", 
                     "¿A qué normas afectó... (Impactos Generados)"
-                ], key="tab5_rel_direccion")
+                ], key="tab6_rel_direccion")
             with col_r2:
-                selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()), key="tab5_rel_selected_norm")
+                selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()), key="tab6_rel_selected_norm")
                 selected_norm = normativas_options[selected_norm_label]
             with col_r3:
-                accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"], key="tab5_rel_accion")
+                accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"], key="tab6_rel_accion")
 
-            if st.button("Buscar Relaciones", type="primary", key="tab5_rel_buscar_btn"):
+            if st.button("Buscar Relaciones", type="primary", key="tab6_rel_buscar_btn"):
                 resultados_rel = []
                 if "Generados" in direccion:
                     if selected_norm['relaciones_juridicas'] and selected_norm['relaciones_juridicas'] not in ['[]', 'None']:
@@ -723,48 +762,7 @@ with tab5:
                     st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
 
     st.divider()
-    st.markdown("### 🕸️ Visualización del Grafo")
-    
-    col_g1, col_g2 = st.columns([3, 1])
-    
-    with col_g2:
-        st.subheader("Herramientas")
-        if st.button("🔄 Generar / Actualizar Mapa", type="primary", use_container_width=True):
-            with st.spinner("Dibujando conexiones..."):
-                from network_graph import generate_network_graph
-                html_data = generate_network_graph()
-                st.session_state['graph_html'] = html_data
-                
-        st.divider()
-        st.write("Usa DeepSeek u OpenAI para escanear documentos que fueron subidos antes de implementar el mapa.")
-        if st.button("🔍 Escanear documentos antiguos", use_container_width=True):
-            ia_choice = st.session_state.get("active_ia_engine", "DeepSeek")
-            api_choice = "OpenAI" if "OpenAI" in ia_choice else ("DeepSeek" if "DeepSeek" in ia_choice else "Gemini")
-            
-            # Verificar API Keys
-            if api_choice == "DeepSeek" and not os.getenv("DEEPSEEK_API_KEY"):
-                st.error("⚠️ Falta configurar DEEPSEEK_API_KEY en .env")
-            elif api_choice == "OpenAI" and not os.getenv("OPENAI_API_KEY"):
-                st.error("⚠️ Falta configurar OPENAI_API_KEY en .env")
-            elif api_choice == "Gemini" and not os.getenv("GOOGLE_API_KEY"):
-                st.error("⚠️ Falta configurar GOOGLE_API_KEY en .env")
-            else:
-                with st.spinner(f"Llamando a {api_choice} en segundo plano... Revisa la consola negra para el progreso."):
-                    import subprocess
-                    subprocess.Popen([sys.executable, "-u", "backfill_conexiones.py", "--engine", api_choice])
-                    st.success("¡Escaneo de conexiones iniciado en segundo plano! Sigue el progreso en tiempo real en la consola negra.")
-                
-    with col_g1:
-        if 'graph_html' in st.session_state:
-            import streamlit.components.v1 as components
-            components.html(st.session_state['graph_html'], height=650)
-        else:
-            st.info("👈 Haz clic en 'Generar Mapa' para ver las conexiones.")
-
-with tab6:
-    st.header("⚖️ Relaciones Jurídicas")
-    st.write("Listado detallado de las acciones legales (modificaciones, derogaciones, etc.) que ejercen unas normas sobre otras.")
-    
+    st.markdown("### 📋 Listado Completo de Relaciones")
     normativas = database.get_all_normativas()
     
     # Extraer todas las relaciones a una lista plana para armar una tabla
