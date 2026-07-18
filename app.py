@@ -12,8 +12,12 @@ import database
 
 st.set_page_config(page_title="Base de Datos Municipal", layout="wide", page_icon="🏛️")
 
-# Initialize DB if not exists
-database.init_db()
+# Initialize DB if not exists (Cached to prevent concurrent lock errors on reload)
+@st.cache_resource
+def initialize_database():
+    database.init_db()
+
+initialize_database()
 
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 

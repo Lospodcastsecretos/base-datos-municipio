@@ -9,7 +9,7 @@ CHROMA_PATH = "./chroma_db"
 def init_db():
     """Initializes SQLite database and ChromaDB collection."""
     # SQLite
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS normativas (
@@ -106,7 +106,7 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
     """Inserts a new document and its metadata into SQLite and ChromaDB."""
     import json
     # Insert in SQLite
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     cursor = conn.cursor()
     
     # Asegurar que referencias sea un string JSON si viene como lista
@@ -191,7 +191,7 @@ def search_normativas(query_embedding: list[float], n_results: int = 5):
 
 def get_all_normativas():
     """Retrieves all documents from SQLite."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM normativas')
     rows = cursor.fetchall()
@@ -204,7 +204,7 @@ def get_all_normativas():
 
 def update_normativa(db_id: int, updated_data: dict):
     """Updates a document's metadata in SQLite."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     cursor = conn.cursor()
     
     # Construir query dinámica para actualizar solo los campos proporcionados
@@ -249,7 +249,7 @@ def update_normativa(db_id: int, updated_data: dict):
 
 def delete_normativa(id_normativa: int):
     """Deletes a document from SQLite and ChromaDB by ID."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM normativas WHERE id = ?", (id_normativa,))
     cursor.execute("DELETE FROM articulos WHERE normativa_id = ?", (id_normativa,))
@@ -270,7 +270,7 @@ def get_articulos_por_norma(normativa_id: int, fecha: str = None) -> list[dict]:
         import datetime
         fecha = datetime.date.today().strftime('%Y-%m-%d')
         
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
@@ -301,7 +301,7 @@ def get_articulos_por_norma(normativa_id: int, fecha: str = None) -> list[dict]:
 
 def get_historial_articulo(normativa_id: int, numero_articulo: str) -> list[dict]:
     """Retrieves all versions of a specific article for history tracking."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute('''
@@ -317,7 +317,7 @@ def get_historial_articulo(normativa_id: int, numero_articulo: str) -> list[dict
 
 def search_normativas_fts(query_text: str) -> list[dict]:
     """Searches using SQLite FTS5 MATCH syntax with a fallback to LIKE on error."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
@@ -346,7 +346,7 @@ def search_normativas_fts(query_text: str) -> list[dict]:
 def reset_database():
     """Wipes all data from SQLite and ChromaDB."""
     # Delete all records from SQLite
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)
     cursor = conn.cursor()
     cursor.execute('DELETE FROM normativas')
     # Resetea el contador de ID (AUTOINCREMENT) para que vuelva a empezar desde 1
