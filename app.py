@@ -358,38 +358,68 @@ with tab2:
         st.info("La base de datos está vacía. Procesa algunos documentos primero.")
 
 with tab3:
-    st.header("Búsqueda Semántica con IA")
-    st.write("Escribe una pregunta o tema en lenguaje natural. La IA buscará en el significado del texto, no solo palabras clave.")
+    st.header("Buscador Avanzado de Normativas")
+    st.write("Busca documentos en la base de datos municipal por significado conceptual o por palabras clave exactas.")
     
-    query = st.text_input("¿Qué estás buscando? (Ej. 'Normativas sobre estacionamiento medido')")
+    tipo_busqueda = st.radio(
+        "Selecciona el método de búsqueda:",
+        options=["Conceptos e Ideas (Búsqueda Semántica con IA)", "Palabras Clave Exactas (Búsqueda por Texto Completo)"],
+        horizontal=True
+    )
+    
+    query = st.text_input("¿Qué estás buscando? (Ej. 'estacionamiento medido' o 'Ordenanza 9078')")
     
     if st.button("Buscar", type="primary") and query:
-        if not os.getenv("GOOGLE_API_KEY"):
-            st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env")
-        else:
-            with st.spinner("Generando vector de búsqueda y consultando ChromaDB..."):
-                try:
-                    # Generar embedding para la query usando el mismo modelo
-                    query_embedding = generate_embedding(query)
-                    
-                    # Buscar en ChromaDB
-                    results = database.search_normativas(query_embedding, n_results=5)
-                    
-                    if results and results['ids'] and len(results['ids'][0]) > 0:
-                        st.success(f"Se encontraron {len(results['ids'][0])} resultados relevantes.")
+        if tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
+            if not os.getenv("GOOGLE_API_KEY"):
+                st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env para generar vectores de búsqueda.")
+            else:
+                with st.spinner("Generando vector de búsqueda y consultando ChromaDB..."):
+                    try:
+                        # Generar embedding para la query
+                        query_embedding = generate_embedding(query)
+                        results = database.search_normativas(query_embedding, n_results=10)
                         
-                        for i in range(len(results['ids'][0])):
-                            st.markdown(f"### Resultado {i+1}")
-                            meta = results['metadatas'][0][i]
-                            st.markdown(f"**Norma Número:** {meta.get('numero', 'N/A')} - **Título:** {meta.get('titulo', 'N/A')}")
-                            # Mostrar un fragmento del documento
-                            texto_completo = results['documents'][0][i]
-                            st.markdown(f"**Fragmento:** _{texto_completo[:500]}..._")
+                        if results and results['ids'] and len(results['ids'][0]) > 0:
+                            st.success(f"Se encontraron {len(results['ids'][0])} resultados semánticos relevantes.")
+                            for i in range(len(results['ids'][0])):
+                                st.markdown(f"### {i+1}. Resultado Semántico")
+                                meta = results['metadatas'][0][i]
+                                st.markdown(f"**Norma Número:** {meta.get('numero', 'N/A')} - **Título:** {meta.get('titulo', 'N/A')}")
+                                texto_completo = results['documents'][0][i]
+                                st.markdown(f"**Fragmento:** _{texto_completo[:500]}..._")
+                                st.divider()
+                        else:
+                            st.info("No se encontraron resultados semánticos similares.")
+                    except Exception as e:
+                        st.error(f"Error en la búsqueda semántica: {e}")
+        else:
+            # Búsqueda FTS5 (Texto Completo)
+            with st.spinner("Buscando en el índice FTS5 de SQLite..."):
+                try:
+                    results = database.search_normativas_fts(query)
+                    if results:
+                        st.success(f"Se encontraron {len(results)} documentos con coincidencia exacta.")
+                        for i, doc in enumerate(results):
+                            st.markdown(f"### {i+1}. Coincidencia por Palabra Clave")
+                            st.markdown(f"**Norma Número:** {doc['numero']} — **Tipo:** {doc['tipo_nombre']} — **Título:** {doc['titulo']}")
+                            st.markdown(f"**Fecha:** {doc['fecha']} — **Estado:** {'Vigente' if doc['vigente'] else 'No Vigente/Derogada'}")
+                            st.markdown(f"**Resumen IA:** {doc['resumen_ia']}")
+                            
+                            # Mostrar fragmento resaltado inteligente
+                            match_idx = doc['texto_completo'].lower().find(query.lower())
+                            if match_idx != -1:
+                                start = max(0, match_idx - 100)
+                                end = min(len(doc['texto_completo']), match_idx + 400)
+                                fragment = doc['texto_completo'][start:end]
+                                st.markdown(f"**Fragmento coincidente:** ..._{fragment}_...")
+                            else:
+                                st.markdown(f"**Fragmento:** _{doc['texto_completo'][:500]}..._")
                             st.divider()
                     else:
-                        st.info("No se encontraron resultados muy similares.")
+                        st.info("No se encontraron coincidencias exactas para los términos buscados.")
                 except Exception as e:
-                    st.error(f"Error en la búsqueda: {e}")
+                    st.error(f"Error en la búsqueda FTS5: {e}")
 
 with tab4:
     st.header("🕸️ Mapa de Conexiones (Grafo)")

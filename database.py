@@ -73,6 +73,26 @@ def init_db():
             fuente_normativa_id = normativa_id
         WHERE fecha_desde IS NULL OR fuente_normativa_id IS NULL
     ''')
+    
+    # Crear tabla virtual FTS5 para busqueda de texto completo
+    cursor.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS normativas_fts USING fts5(
+            normativa_id,
+            numero,
+            titulo,
+            texto_completo
+        )
+    ''')
+    
+    # Retro-indexar si la tabla FTS5 esta vacia pero hay normativas
+    cursor.execute("SELECT COUNT(*) FROM normativas_fts")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("SELECT COUNT(*) FROM normativas")
+        if cursor.fetchone()[0] > 0:
+            cursor.execute('''
+                INSERT INTO normativas_fts (rowid, normativa_id, numero, titulo, texto_completo)
+                SELECT id, id, numero, titulo, texto_completo FROM normativas
+            ''')
         
     conn.commit()
     conn.close()
@@ -138,6 +158,12 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
                     VALUES (?, ?, ?, 1, ?, ?)
                 ''', (normativa_id, num_art, txt_art, fecha_norma, normativa_id))
     
+    # Insertar en FTS5
+    cursor.execute('''
+        INSERT INTO normativas_fts (rowid, normativa_id, numero, titulo, texto_completo)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (normativa_id, normativa_id, metadata.get('numero', ''), metadata.get('titulo', ''), texto_completo))
+    
     conn.commit()
     conn.close()
 
@@ -194,9 +220,19 @@ def update_normativa(db_id: int, updated_data: dict):
         return
         
     values.append(db_id)
-    query = f"UPDATE normativas SET {', '.join(fields)} WHERE id = ?"
-    
     cursor.execute(query, tuple(values))
+    
+    # Sincronizar FTS5
+    fts_fields = []
+    fts_values = []
+    for key in ['numero', 'titulo', 'texto_completo']:
+        if key in updated_data:
+            fts_fields.append(f"{key} = ?")
+            fts_values.append(updated_data[key])
+    if fts_fields:
+        fts_values.append(db_id)
+        cursor.execute(f"UPDATE normativas_fts SET {', '.join(fts_fields)} WHERE rowid = ?", tuple(fts_values))
+        
     conn.commit()
     conn.close()
     
@@ -217,6 +253,7 @@ def delete_normativa(id_normativa: int):
     cursor = conn.cursor()
     cursor.execute("DELETE FROM normativas WHERE id = ?", (id_normativa,))
     cursor.execute("DELETE FROM articulos WHERE normativa_id = ?", (id_normativa,))
+    cursor.execute("DELETE FROM normativas_fts WHERE rowid = ?", (id_normativa,))
     conn.commit()
     conn.close()
     
@@ -265,6 +302,34 @@ def get_historial_articulo(normativa_id: int, numero_articulo: str) -> list[dict
         ORDER BY a.version_numero ASC
     ''', (normativa_id, numero_articulo))
     rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def search_normativas_fts(query_text: str) -> list[dict]:
+    """Searches using SQLite FTS5 MATCH syntax with a fallback to LIKE on error."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        # FTS5 MATCH ordenado por relevancia (rank)
+        cursor.execute('''
+            SELECT n.*, fts.rank 
+            FROM normativas n
+            JOIN normativas_fts fts ON n.id = fts.rowid
+            WHERE normativas_fts MATCH ?
+            ORDER BY fts.rank ASC
+        ''', (query_text,))
+        rows = cursor.fetchall()
+    except Exception as e:
+        # Fallback a LIKE clásico si falla la sintaxis de MATCH
+        print(f"FTS5 falló (usando fallback LIKE): {e}")
+        like_query = f"%{query_text}%"
+        cursor.execute('''
+            SELECT *, 0.0 as rank FROM normativas 
+            WHERE numero LIKE ? OR titulo LIKE ? OR texto_completo LIKE ?
+        ''', (like_query, like_query, like_query))
+        rows = cursor.fetchall()
+        
     conn.close()
     return [dict(row) for row in rows]
 
