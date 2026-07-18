@@ -21,7 +21,7 @@ initialize_database()
 
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas", "📊 Estado de la Base de Datos"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas", "📊 Estado de la Base de Datos", "🤖 Asistente Jurídico (RAG)"])
 
 with tab1:
     st.header("Cargar y Procesar Normativas")
@@ -964,3 +964,40 @@ with tab7:
         st.info("La base de datos está vacía. Procesa algunos documentos para ver las estadísticas.")
         
     conn.close()
+
+with tab8:
+    st.header("🤖 Asistente Jurídico Municipal (RAG)")
+    st.write("Hazle preguntas a la IA sobre las ordenanzas municipales. Te responderá en lenguaje natural y citará las normas y artículos correspondientes.")
+    
+    # Selector de Motor
+    ia_engine_rag = st.radio("Motor de IA para responder:", 
+                         options=["DeepSeek (Recomendado - Menos límites)", "OpenAI GPT-4o-mini (Rápido y Estable)", "Google Gemini (Plan Gratuito)"],
+                         key="active_ia_engine_rag",
+                         horizontal=True)
+                         
+    if "rag_history" not in st.session_state:
+        st.session_state.rag_history = [{"role": "assistant", "content": "¡Hola! Soy tu asistente legal municipal. ¿Qué deseas saber sobre las normativas locales?"}]
+        
+    # Mostrar el historial del chat
+    for msg in st.session_state.rag_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            
+    # Input de usuario
+    if prompt := st.chat_input("Ej: ¿Cuáles son las reglas para habilitar un comercio según las ordenanzas?"):
+        st.session_state.rag_history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+            
+        with st.chat_message("assistant"):
+            with st.spinner("Pensando y buscando normativas en la base de datos... ⏳"):
+                try:
+                    from rag_assistant import answer_question_with_rag
+                    # Le pasamos el historial anterior a la pregunta actual
+                    historial_anterior = st.session_state.rag_history[:-1]
+                    respuesta = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
+                    
+                    st.markdown(respuesta)
+                    st.session_state.rag_history.append({"role": "assistant", "content": respuesta})
+                except Exception as e:
+                    st.error(f"Error procesando la respuesta: {e}")
