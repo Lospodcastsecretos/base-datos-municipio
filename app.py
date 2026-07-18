@@ -477,8 +477,12 @@ with tab4:
             
             filtro_categoria = st.selectbox("Tema / Categoría:", categorias_unicas)
         
-        if st.button("Buscar", type="primary") and query:
-            if tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
+        if st.button("Buscar", type="primary"):
+            if not query and tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
+                st.warning("⚠️ Debes ingresar un texto a buscar para usar la IA Semántica. Si solo quieres usar los filtros, cambia a 'Palabras Clave Exactas'.")
+            elif not query and tipo_busqueda == "Palabras Clave Exactas (Búsqueda por Texto Completo)" and filtro_tipo == "Todos" and not filtro_anio and filtro_estado == "Todos" and filtro_categoria == "Todos":
+                st.warning("⚠️ Ingresa un término de búsqueda o selecciona al menos un filtro.")
+            elif tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
                 if not os.getenv("GOOGLE_API_KEY"):
                     st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env para generar vectores de búsqueda.")
                 else:
@@ -486,7 +490,7 @@ with tab4:
                         try:
                             # Generar embedding para la query
                             query_embedding = generate_embedding(query)
-                            results = database.search_normativas(query_embedding, n_results=100) # Ampliamos para filtrar
+                            results = database.search_normativas(query_embedding, n_results=300) # Ampliamos más para que post-filtrado no quede en 0
                             
                             if results and results['ids'] and len(results['ids'][0]) > 0:
                                 norm_dict = {str(n['id']): n for n in all_norms_for_filters}
@@ -527,9 +531,9 @@ with tab4:
                             st.error(f"Error en la búsqueda semántica: {e}")
             else:
                 # Búsqueda FTS5 (Texto Completo)
-                with st.spinner("Buscando en el índice FTS5 de SQLite..."):
+                with st.spinner("Buscando en la base de datos..."):
                     try:
-                        results = database.search_normativas_fts(query)
+                        results = database.search_normativas_fts(query) if query else all_norms_for_filters
                         if results:
                             filtrados_fts = []
                             for doc in results:
@@ -555,8 +559,9 @@ with tab4:
                                     st.markdown(f"**Resumen IA:** {doc.get('resumen_ia', 'N/A')}")
                                     
                                     # Mostrar fragmento resaltado inteligente
-                                    texto_completo = doc.get('texto_completo', '')
-                                    match_idx = texto_completo.lower().find(query.lower())
+                                    texto_completo = doc.get('texto_completo') or ''
+                                    match_idx = texto_completo.lower().find(query.lower()) if query else -1
+                                    
                                     if match_idx != -1:
                                         start = max(0, match_idx - 100)
                                         end = min(len(texto_completo), match_idx + 400)
