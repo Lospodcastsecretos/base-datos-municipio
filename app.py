@@ -363,8 +363,9 @@ with tab2:
                 try:
                     import plotly.express as px
                     import sqlite3
+                    import database
                     
-                    conn_t = sqlite3.connect("normativas.db", timeout=15)
+                    conn_t = sqlite3.connect(database.DB_PATH, timeout=15)
                     conn_t.row_factory = sqlite3.Row
                     c_t = conn_t.cursor()
                     
