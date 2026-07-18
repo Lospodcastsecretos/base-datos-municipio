@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import datetime
 import sys
+import json
 from document_processor import process_document
 from ai_extractor import extract_metadata_and_summary, generate_embedding
 import database
