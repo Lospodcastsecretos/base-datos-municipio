@@ -19,6 +19,107 @@ def initialize_database():
 
 initialize_database()
 
+def render_buscador_relaciones(all_normativas, key_prefix=""):
+    st.info("💡 **Búsqueda por Relaciones:** Permite consultar qué normas ejercieron una acción (modificar, derogar) sobre otra, o qué impactos generó una norma en particular.")
+    if not all_normativas:
+        return
+        
+    origenes = set()
+    destinos = set()
+    for n in all_normativas:
+        if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
+            try:
+                rels = json.loads(n['relaciones_juridicas'])
+                if rels:
+                    origenes.add(n['id'])
+                    for r in rels:
+                        dest = str(r.get('norma_destino', '')).strip().lower()
+                        if dest:
+                            destinos.add(dest)
+            except Exception:
+                pass
+    
+    normas_filtradas = []
+    import re
+    for n in all_normativas:
+        if n['id'] in origenes:
+            normas_filtradas.append(n)
+            continue
+        num_str = str(n['numero']).strip()
+        es_destino = False
+        if num_str:
+            for d in destinos:
+                if re.search(rf"\b{re.escape(num_str.lower())}\b", d):
+                    es_destino = True
+                    break
+        if es_destino:
+            normas_filtradas.append(n)
+    
+    st.caption(f"🔍 **Depuración:** {len(all_normativas)} documentos en total, {len(normas_filtradas)} con relaciones detectadas.")
+    if not normas_filtradas:
+        st.warning("⚠️ No se encontraron normativas con relaciones registradas en la base de datos.")
+        st.info("💡 **Cómo activar las relaciones:** Si acabas de cargar documentos, ve a la pestaña **`🕸️ Mapa de Conexiones (Grafo)`** y haz clic en el botón **`🔄 Generar / Actualizar Mapa`** para que la IA y las expresiones regulares detecten las conexiones entre tus ordenanzas.")
+    else:
+        normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in normas_filtradas}
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            direccion = st.selectbox("Tipo de consulta:", [
+                "¿Qué normas afectaron a... (Impactos Recibidos)", 
+                "¿A qué normas afectó... (Impactos Generados)"
+            ], key=f"{key_prefix}direccion")
+        with col2:
+            selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()), key=f"{key_prefix}selected_norm")
+            selected_norm = normativas_options[selected_norm_label]
+        with col3:
+            accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"], key=f"{key_prefix}accion")
+
+        if st.button("Buscar Relaciones", type="primary", key=f"{key_prefix}buscar_btn"):
+            resultados_rel = []
+            if "Generados" in direccion:
+                if selected_norm['relaciones_juridicas'] and selected_norm['relaciones_juridicas'] not in ['[]', 'None']:
+                    try:
+                        rels = json.loads(selected_norm['relaciones_juridicas'])
+                        for r in rels:
+                            act = str(r.get('accion', '')).lower()
+                            if accion_filter == "Cualquier Acción" or accion_filter in act:
+                                resultados_rel.append({
+                                    "Norma Origen": f"{selected_norm['tipo_nombre']} Nº {selected_norm['numero']}",
+                                    "Acción Jurídica": str(r.get('accion', '')).upper(),
+                                    "Norma Destino (Afectada)": str(r.get('norma_destino', '')).upper(),
+                                    "Detalle Adicional": str(r.get('detalle', ''))
+                                })
+                    except Exception:
+                        pass
+            else:
+                num_para_buscar = str(selected_norm['numero']).strip()
+                for n in all_normativas:
+                    if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
+                        try:
+                            rels = json.loads(n['relaciones_juridicas'])
+                            for r in rels:
+                                target_str = str(r.get('norma_destino', '')).strip()
+                                if target_str:
+                                    if re.search(rf"\b{re.escape(num_para_buscar)}\b", target_str.lower()):
+                                        act = str(r.get('accion', '')).lower()
+                                        if accion_filter == "Cualquier Acción" or accion_filter in act:
+                                            resultados_rel.append({
+                                                "Norma Origen": f"{n['tipo_nombre']} Nº {n['numero']}",
+                                                "Acción Jurídica": str(r.get('accion', '')).upper(),
+                                                "Norma Destino (Afectada)": target_str.upper(),
+                                                "Detalle Adicional": str(r.get('detalle', ''))
+                                            })
+                        except Exception:
+                            pass
+            
+            if resultados_rel:
+                st.success(f"Se encontraron {len(resultados_rel)} relaciones jurídicas.")
+                for i, rel in enumerate(resultados_rel):
+                    st.markdown(f"### {i+1}. {rel['Norma Origen']} ➔ {rel['Acción Jurídica']} ➔ {rel['Norma Destino (Afectada)']}")
+                    st.markdown(f"**Detalle del Análisis:** {rel['Detalle Adicional']}")
+                    st.divider()
+            else:
+                st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas", "📊 Estado de la Base de Datos", "🤖 Asistente Jurídico (RAG)"])
@@ -671,109 +772,8 @@ with tab4:
                     except Exception as e:
                         st.error(f"Error en la búsqueda FTS5: {e}")
     else:
-        st.info("💡 **Búsqueda por Relaciones:** Permite consultar qué normas ejercieron una acción (modificar, derogar) sobre otra, o qué impactos generó una norma en particular.")
         all_normativas = database.get_all_normativas()
-        
-        if all_normativas:
-            # Filtrar para dejar solo normas con relaciones (origen o destino)
-            origenes = set()
-            destinos = set()
-            for n in all_normativas:
-                if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
-                    try:
-                        rels = json.loads(n['relaciones_juridicas'])
-                        if rels:
-                            origenes.add(n['id'])
-                            for r in rels:
-                                dest = str(r.get('norma_destino', '')).strip().lower()
-                                if dest:
-                                    destinos.add(dest)
-                    except Exception:
-                        pass
-            
-            normas_filtradas = []
-            import re
-            for n in all_normativas:
-                if n['id'] in origenes:
-                    normas_filtradas.append(n)
-                    continue
-                num_str = str(n['numero']).strip()
-                es_destino = False
-                if num_str:
-                    for d in destinos:
-                        if re.search(rf"\b{re.escape(num_str.lower())}\b", d):
-                            es_destino = True
-                            break
-                if es_destino:
-                    normas_filtradas.append(n)
-            
-            st.caption(f"🔍 **Depuración:** {len(all_normativas)} documentos en total, {len(normas_filtradas)} con relaciones detectadas.")
-            if not normas_filtradas:
-                st.warning("⚠️ No se encontraron normativas con relaciones registradas en la base de datos.")
-                st.info("💡 **Cómo activar las relaciones:** Si acabas de cargar documentos, ve a la pestaña **`🕸️ Mapa de Conexiones (Grafo)`** y haz clic en el botón **`🔄 Generar / Actualizar Mapa`** para que la IA y las expresiones regulares detecten las conexiones entre tus ordenanzas.")
-            else:
-                normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in normas_filtradas}
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    direccion = st.selectbox("Tipo de consulta:", [
-                        "¿Qué normas afectaron a... (Impactos Recibidos)", 
-                        "¿A qué normas afectó... (Impactos Generados)"
-                    ])
-                with col2:
-                    selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()))
-                    selected_norm = normativas_options[selected_norm_label]
-                with col3:
-                    accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"])
-
-                if st.button("Buscar Relaciones", type="primary"):
-                    resultados_rel = []
-                    if "Generados" in direccion:
-                        if selected_norm['relaciones_juridicas'] and selected_norm['relaciones_juridicas'] not in ['[]', 'None']:
-                            try:
-                                rels = json.loads(selected_norm['relaciones_juridicas'])
-                                for r in rels:
-                                    act = str(r.get('accion', '')).lower()
-                                    if accion_filter == "Cualquier Acción" or accion_filter in act:
-                                        resultados_rel.append({
-                                            "Norma Origen": f"{selected_norm['tipo_nombre']} Nº {selected_norm['numero']}",
-                                            "Acción Jurídica": str(r.get('accion', '')).upper(),
-                                            "Norma Destino (Afectada)": str(r.get('norma_destino', '')).upper(),
-                                            "Detalle Adicional": str(r.get('detalle', ''))
-                                        })
-                            except Exception:
-                                pass
-                    else:
-                        import re
-                        num_para_buscar = str(selected_norm['numero']).strip()
-                        for n in all_normativas:
-                            if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
-                                try:
-                                    rels = json.loads(n['relaciones_juridicas'])
-                                    for r in rels:
-                                        target_str = str(r.get('norma_destino', '')).strip()
-                                        if target_str:
-                                            # Buscar el número exacto usando límites de palabra (\b) para evitar falsos positivos
-                                            if re.search(rf"\b{re.escape(num_para_buscar)}\b", target_str.lower()):
-                                                act = str(r.get('accion', '')).lower()
-                                                if accion_filter == "Cualquier Acción" or accion_filter in act:
-                                                    resultados_rel.append({
-                                                        "Norma Origen": f"{n['tipo_nombre']} Nº {n['numero']}",
-                                                        "Acción Jurídica": str(r.get('accion', '')).upper(),
-                                                        "Norma Destino (Afectada)": target_str.upper(),
-                                                        "Detalle Adicional": str(r.get('detalle', ''))
-                                                    })
-                                except Exception:
-                                    pass
-                    
-                    if resultados_rel:
-                        st.success(f"Se encontraron {len(resultados_rel)} relaciones jurídicas.")
-                        for i, rel in enumerate(resultados_rel):
-                            st.markdown(f"### {i+1}. {rel['Norma Origen']} ➔ {rel['Acción Jurídica']} ➔ {rel['Norma Destino (Afectada)']}")
-                            st.markdown(f"**Detalle del Análisis:** {rel['Detalle Adicional']}")
-                            st.divider()
-                    else:
-                        st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
+        render_buscador_relaciones(all_normativas, key_prefix="tab4_")
 
 with tab5:
     st.header("🕸️ Mapa de Conexiones (Grafo)")
@@ -805,102 +805,7 @@ with tab6:
     # Buscador de Relaciones en Tab 6
     st.markdown("### 🔍 Consultas Rápidas de Impacto Jurídico")
     all_normativas = database.get_all_normativas()
-    if all_normativas:
-        # Filtrar para dejar solo normas con relaciones (origen o destino)
-        origenes = set()
-        destinos = set()
-        for n in all_normativas:
-            if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
-                try:
-                    rels = json.loads(n['relaciones_juridicas'])
-                    if rels:
-                        origenes.add(n['id'])
-                        for r in rels:
-                            dest = str(r.get('norma_destino', '')).strip().lower()
-                            if dest:
-                                destinos.add(dest)
-                except Exception:
-                    pass
-        
-        normas_filtradas = []
-        import re
-        for n in all_normativas:
-            if n['id'] in origenes:
-                normas_filtradas.append(n)
-                continue
-            num_str = str(n['numero']).strip()
-            es_destino = False
-            if num_str:
-                for d in destinos:
-                    if re.search(rf"\b{re.escape(num_str.lower())}\b", d):
-                        es_destino = True
-                        break
-            if es_destino:
-                normas_filtradas.append(n)
-        
-        if not normas_filtradas:
-            st.warning("⚠️ No se encontraron normativas con relaciones registradas en la base de datos.")
-        else:
-            normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in normas_filtradas}
-            
-            col_r1, col_r2, col_r3 = st.columns(3)
-            with col_r1:
-                direccion = st.selectbox("Tipo de consulta:", [
-                    "¿Qué normas afectaron a... (Impactos Recibidos)", 
-                    "¿A qué normas afectó... (Impactos Generados)"
-                ], key="tab6_rel_direccion")
-            with col_r2:
-                selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()), key="tab6_rel_selected_norm")
-                selected_norm = normativas_options[selected_norm_label]
-            with col_r3:
-                accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"], key="tab6_rel_accion")
-
-            if st.button("Buscar Relaciones", type="primary", key="tab6_rel_buscar_btn"):
-                resultados_rel = []
-                if "Generados" in direccion:
-                    if selected_norm['relaciones_juridicas'] and selected_norm['relaciones_juridicas'] not in ['[]', 'None']:
-                        try:
-                            rels = json.loads(selected_norm['relaciones_juridicas'])
-                            for r in rels:
-                                act = str(r.get('accion', '')).lower()
-                                if accion_filter == "Cualquier Acción" or accion_filter in act:
-                                    resultados_rel.append({
-                                        "Norma Origen": f"{selected_norm['tipo_nombre']} Nº {selected_norm['numero']}",
-                                        "Acción Jurídica": str(r.get('accion', '')).upper(),
-                                        "Norma Destino (Afectada)": str(r.get('norma_destino', '')).upper(),
-                                        "Detalle Adicional": str(r.get('detalle', ''))
-                                    })
-                        except Exception:
-                            pass
-                else:
-                    num_para_buscar = str(selected_norm['numero']).strip()
-                    for n in all_normativas:
-                        if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
-                            try:
-                                rels = json.loads(n['relaciones_juridicas'])
-                                for r in rels:
-                                    target_str = str(r.get('norma_destino', '')).strip()
-                                    if target_str:
-                                        if re.search(rf"\b{re.escape(num_para_buscar)}\b", target_str.lower()):
-                                            act = str(r.get('accion', '')).lower()
-                                            if accion_filter == "Cualquier Acción" or accion_filter in act:
-                                                resultados_rel.append({
-                                                    "Norma Origen": f"{n['tipo_nombre']} Nº {n['numero']}",
-                                                    "Acción Jurídica": str(r.get('accion', '')).upper(),
-                                                    "Norma Destino (Afectada)": target_str.upper(),
-                                                    "Detalle Adicional": str(r.get('detalle', ''))
-                                                })
-                            except Exception:
-                                pass
-                
-                if resultados_rel:
-                    st.success(f"Se encontraron {len(resultados_rel)} relaciones jurídicas.")
-                    for i, rel in enumerate(resultados_rel):
-                        st.markdown(f"### {i+1}. {rel['Norma Origen']} ➔ {rel['Acción Jurídica']} ➔ {rel['Norma Destino (Afectada)']}")
-                        st.markdown(f"**Detalle del Análisis:** {rel['Detalle Adicional']}")
-                        st.divider()
-                else:
-                    st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
+    render_buscador_relaciones(all_normativas, key_prefix="tab6_")
 
     st.divider()
     st.markdown("### 📋 Listado Completo de Relaciones")
