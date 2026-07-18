@@ -1025,9 +1025,22 @@ with tab8:
         st.session_state.rag_history = [{"role": "assistant", "content": "¡Hola! Soy tu asistente legal municipal. ¿Qué deseas saber sobre las normativas locales?"}]
         
     # Mostrar el historial del chat
-    for msg in st.session_state.rag_history:
+    for i, msg in enumerate(st.session_state.rag_history):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            if msg.get("fuentes"):
+                with st.expander("📚 Fuentes consultadas", expanded=False):
+                    for f in msg["fuentes"]:
+                        st.markdown(f"- **{f['tipo']} Nº {f['numero']}**: _{f['titulo']}_")
+                
+                if i > 0 and st.session_state.rag_history[i-1]["role"] == "user":
+                    pregunta = st.session_state.rag_history[i-1]["content"]
+                    try:
+                        import report_generator
+                        docx_bytes = report_generator.generate_rag_report(pregunta, msg["content"], msg["fuentes"]).getvalue()
+                        st.download_button("📥 Exportar Respuesta (.docx)", data=docx_bytes, file_name=f"Respuesta_RAG_{i}.docx", key=f"dl_rag_{i}")
+                    except Exception as e:
+                        pass
             
     # Input de usuario
     if prompt := st.chat_input("Ej: ¿Cuáles son las reglas para habilitar un comercio según las ordenanzas?"):
@@ -1041,10 +1054,21 @@ with tab8:
                     from rag_assistant import answer_question_with_rag
                     # Le pasamos el historial anterior a la pregunta actual
                     historial_anterior = st.session_state.rag_history[:-1]
-                    respuesta = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
+                    respuesta, fuentes = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
                     
                     st.markdown(respuesta)
-                    st.session_state.rag_history.append({"role": "assistant", "content": respuesta})
+                    if fuentes:
+                        with st.expander("📚 Fuentes consultadas", expanded=False):
+                            for f in fuentes:
+                                st.markdown(f"- **{f['tipo']} Nº {f['numero']}**: _{f['titulo']}_")
+                        try:
+                            import report_generator
+                            docx_bytes = report_generator.generate_rag_report(prompt, respuesta, fuentes).getvalue()
+                            st.download_button("📥 Exportar Respuesta (.docx)", data=docx_bytes, file_name="Respuesta_RAG_nuevo.docx", key="dl_rag_nuevo")
+                        except Exception:
+                            pass
+                    
+                    st.session_state.rag_history.append({"role": "assistant", "content": respuesta, "fuentes": fuentes})
                 except Exception as e:
                     st.error(f"Error procesando la respuesta: {e}")
 

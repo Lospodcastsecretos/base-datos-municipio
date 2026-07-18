@@ -139,3 +139,32 @@ def generate_report(norma_id: int) -> io.BytesIO:
     file_stream.seek(0)
     
     return file_stream
+
+def generate_rag_report(pregunta: str, respuesta: str, fuentes: list) -> io.BytesIO:
+    doc = Document()
+    
+    title = doc.add_heading("Informe de Consulta - Asistente Jurídico", level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    doc.add_paragraph()
+    
+    doc.add_heading("1. Consulta Realizada", level=1)
+    doc.add_paragraph(pregunta)
+    
+    doc.add_heading("2. Respuesta de la IA", level=1)
+    for par in respuesta.split('\n'):
+        if par.strip():
+            doc.add_paragraph(par.strip())
+            
+    doc.add_heading("3. Fuentes Consultadas", level=1)
+    if fuentes:
+        for f in fuentes:
+            doc.add_paragraph(f"{f.get('tipo', 'Doc')} Nº {f.get('numero', 'S/N')} - {f.get('titulo', 'Sin título')}", style='List Bullet')
+    else:
+        doc.add_paragraph("No se citaron fuentes específicas.")
+        
+    file_stream = io.BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    
+    return file_stream
