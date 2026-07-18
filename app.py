@@ -461,6 +461,22 @@ with tab4:
     if tipo_busqueda in ["Conceptos e Ideas (Búsqueda Semántica con IA)", "Palabras Clave Exactas (Búsqueda por Texto Completo)"]:
         query = st.text_input("¿Qué estás buscando? (Ej. 'estacionamiento medido' o 'Ordenanza 9078')")
         
+        # Filtros Dinámicos
+        all_norms_for_filters = database.get_all_normativas()
+        tipos_unicos = ["Todos"] + sorted(list(set([n.get('tipo_nombre', 'Otro') for n in all_norms_for_filters if n.get('tipo_nombre')])))
+        categorias_unicas = ["Todos"] + sorted(list(set([n.get('categoria_nombre', 'Sin Clasificar') for n in all_norms_for_filters if n.get('categoria_nombre')])))
+        
+        with st.expander("⚙️ Filtros Combinables"):
+            f_col1, f_col2, f_col3 = st.columns(3)
+            with f_col1:
+                filtro_tipo = st.selectbox("Tipo de Norma:", tipos_unicos)
+            with f_col2:
+                filtro_anio = st.text_input("Año (Ej. 2023):", "")
+            with f_col3:
+                filtro_estado = st.selectbox("Estado:", ["Todos", "Vigente", "No Vigente/Derogada"])
+            
+            filtro_categoria = st.selectbox("Tema / Categoría:", categorias_unicas)
+        
         if st.button("Buscar", type="primary") and query:
             if tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
                 if not os.getenv("GOOGLE_API_KEY"):
@@ -470,17 +486,41 @@ with tab4:
                         try:
                             # Generar embedding para la query
                             query_embedding = generate_embedding(query)
-                            results = database.search_normativas(query_embedding, n_results=10)
+                            results = database.search_normativas(query_embedding, n_results=100) # Ampliamos para filtrar
                             
                             if results and results['ids'] and len(results['ids'][0]) > 0:
-                                st.success(f"Se encontraron {len(results['ids'][0])} resultados semánticos relevantes.")
-                                for i in range(len(results['ids'][0])):
-                                    st.markdown(f"### {i+1}. Resultado Semántico")
+                                norm_dict = {str(n['id']): n for n in all_norms_for_filters}
+                                filtrados_semantic = []
+                                
+                                for i, doc_id in enumerate(results['ids'][0]):
+                                    n_data = norm_dict.get(doc_id)
+                                    if not n_data: continue
+                                    
+                                    # Aplicar filtros
+                                    if filtro_tipo != "Todos" and str(n_data.get('tipo_nombre', '')) != filtro_tipo: continue
+                                    if filtro_anio and str(filtro_anio) not in str(n_data.get('fecha', '')): continue
+                                    if filtro_estado != "Todos":
+                                        is_vigente = bool(n_data.get('vigente'))
+                                        if filtro_estado == "Vigente" and not is_vigente: continue
+                                        if filtro_estado == "No Vigente/Derogada" and is_vigente: continue
+                                    if filtro_categoria != "Todos" and str(n_data.get('categoria_nombre', '')) != filtro_categoria: continue
+                                    
                                     meta = results['metadatas'][0][i]
-                                    st.markdown(f"**Norma Número:** {meta.get('numero', 'N/A')} - **Título:** {meta.get('titulo', 'N/A')}")
-                                    texto_completo = results['documents'][0][i]
-                                    st.markdown(f"**Fragmento:** _{texto_completo[:500]}..._")
-                                    st.divider()
+                                    texto = results['documents'][0][i]
+                                    filtrados_semantic.append({'meta': meta, 'texto': texto})
+                                    
+                                    if len(filtrados_semantic) >= 15: # Límite final post-filtro
+                                        break
+                                        
+                                if filtrados_semantic:
+                                    st.success(f"Se encontraron {len(filtrados_semantic)} resultados semánticos relevantes (aplicando filtros).")
+                                    for i, res in enumerate(filtrados_semantic):
+                                        st.markdown(f"### {i+1}. Resultado Semántico")
+                                        st.markdown(f"**Norma Número:** {res['meta'].get('numero', 'N/A')} - **Título:** {res['meta'].get('titulo', 'N/A')}")
+                                        st.markdown(f"**Fragmento:** _{res['texto'][:500]}..._")
+                                        st.divider()
+                                else:
+                                    st.info("Ningún resultado semántico coincidió con los filtros seleccionados.")
                             else:
                                 st.info("No se encontraron resultados semánticos similares.")
                         except Exception as e:
@@ -491,25 +531,42 @@ with tab4:
                     try:
                         results = database.search_normativas_fts(query)
                         if results:
-                            st.success(f"Se encontraron {len(results)} documentos con coincidencia exacta.")
-                            for i, doc in enumerate(results):
-                                st.markdown(f"### {i+1}. Coincidencia por Palabra Clave")
-                                st.markdown(f"**Norma Número:** {doc['numero']} — **Tipo:** {doc['tipo_nombre']} — **Título:** {doc['titulo']}")
-                                st.markdown(f"**Fecha:** {doc['fecha']} — **Estado:** {'Vigente' if doc['vigente'] else 'No Vigente/Derogada'}")
-                                st.markdown(f"**Resumen IA:** {doc['resumen_ia']}")
+                            filtrados_fts = []
+                            for doc in results:
+                                # Aplicar filtros
+                                if filtro_tipo != "Todos" and str(doc.get('tipo_nombre', '')) != filtro_tipo: continue
+                                if filtro_anio and str(filtro_anio) not in str(doc.get('fecha', '')): continue
+                                if filtro_estado != "Todos":
+                                    is_vigente = bool(doc.get('vigente'))
+                                    if filtro_estado == "Vigente" and not is_vigente: continue
+                                    if filtro_estado == "No Vigente/Derogada" and is_vigente: continue
+                                if filtro_categoria != "Todos" and str(doc.get('categoria_nombre', '')) != filtro_categoria: continue
                                 
-                                # Mostrar fragmento resaltado inteligente
-                                match_idx = doc['texto_completo'].lower().find(query.lower())
-                                if match_idx != -1:
-                                    start = max(0, match_idx - 100)
-                                    end = min(len(doc['texto_completo']), match_idx + 400)
-                                    fragment = doc['texto_completo'][start:end]
-                                    st.markdown(f"**Fragmento coincidente:** ..._{fragment}_...")
-                                else:
-                                    st.markdown(f"**Fragmento:** _{doc['texto_completo'][:500]}..._")
-                                st.divider()
-                        else:
-                            st.info("No se encontraron coincidencias exactas para los términos buscados.")
+                                filtrados_fts.append(doc)
+                                if len(filtrados_fts) >= 30: # Límite final post-filtro
+                                    break
+                                    
+                            if filtrados_fts:
+                                st.success(f"Se encontraron {len(filtrados_fts)} documentos con coincidencia exacta (aplicando filtros).")
+                                for i, doc in enumerate(filtrados_fts):
+                                    st.markdown(f"### {i+1}. Coincidencia por Palabra Clave")
+                                    st.markdown(f"**Norma Número:** {doc.get('numero', 'N/A')} — **Tipo:** {doc.get('tipo_nombre', 'N/A')} — **Título:** {doc.get('titulo', 'N/A')}")
+                                    st.markdown(f"**Fecha:** {doc.get('fecha', 'N/A')} — **Estado:** {'Vigente' if doc.get('vigente') else 'No Vigente/Derogada'}")
+                                    st.markdown(f"**Resumen IA:** {doc.get('resumen_ia', 'N/A')}")
+                                    
+                                    # Mostrar fragmento resaltado inteligente
+                                    texto_completo = doc.get('texto_completo', '')
+                                    match_idx = texto_completo.lower().find(query.lower())
+                                    if match_idx != -1:
+                                        start = max(0, match_idx - 100)
+                                        end = min(len(texto_completo), match_idx + 400)
+                                        fragment = texto_completo[start:end]
+                                        st.markdown(f"**Fragmento coincidente:** ..._{fragment}_...")
+                                    else:
+                                        st.markdown(f"**Fragmento:** _{texto_completo[:500]}..._")
+                                    st.divider()
+                            else:
+                                st.info("Ninguna coincidencia exacta cumplió con los filtros seleccionados.")
                     except Exception as e:
                         st.error(f"Error en la búsqueda FTS5: {e}")
     else:
