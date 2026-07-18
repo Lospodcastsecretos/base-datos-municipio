@@ -16,7 +16,7 @@ database.init_db()
 
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas", "📊 Estado de la Base de Datos"])
 
 with tab1:
     st.header("Cargar y Procesar Normativas")
@@ -615,3 +615,95 @@ with tab6:
             components.html(st.session_state['graph_html_complex'], height=650)
     else:
         st.info("Aún no se han detectado relaciones jurídicas complejas. Recuerda usar DeepSeek para procesar o escanear documentos y detectar si modifican o derogan a otros.")
+
+with tab7:
+    st.header("📊 Estado de la Base de Datos")
+    st.write("Estadísticas y estado general de los documentos, clasificaciones y artículos almacenados en el sistema municipal.")
+    
+    import sqlite3
+    conn = sqlite3.connect(database.DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # 1. Métricas generales
+    cursor.execute("SELECT COUNT(*) FROM normativas")
+    total_normas = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM articulos")
+    total_articulos = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM normativas WHERE vigente = 1")
+    total_vigentes = cursor.fetchone()[0]
+    
+    # Calcular vigencia en porcentaje
+    pct_vigente = (total_vigentes / total_normas * 100) if total_normas > 0 else 0.0
+    
+    # Conexiones totales detectadas
+    cursor.execute("SELECT relaciones_juridicas FROM normativas")
+    rows_rels = cursor.fetchall()
+    conexiones_totales = 0
+    import json
+    for r in rows_rels:
+        if r[0] and r[0] != '[]' and r[0] != 'None':
+            try:
+                conexiones_totales += len(json.loads(r[0]))
+            except:
+                pass
+
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    with col_m1:
+        st.metric(label="📄 Total Documentos", value=total_normas)
+    with col_m2:
+        st.metric(label="⛓️ Artículos Estructurados", value=total_articulos)
+    with col_m3:
+        st.metric(label="🟢 Vigencia Promedio", value=f"{pct_vigente:.1f}%")
+    with col_m4:
+        st.metric(label="🔗 Conexiones Detectadas", value=conexiones_totales)
+        
+    st.divider()
+    
+    if total_normas > 0:
+        col_chart1, col_chart2 = st.columns(2)
+        
+        with col_chart1:
+            st.subheader("Clasificación por Tipo de Documento")
+            cursor.execute("SELECT tipo_nombre, COUNT(*) as c FROM normativas GROUP BY tipo_nombre ORDER BY c DESC")
+            data_tipos = cursor.fetchall()
+            df_tipos = pd.DataFrame([dict(row) for row in data_tipos])
+            df_tipos.rename(columns={"tipo_nombre": "Tipo de Documento", "c": "Cantidad"}, inplace=True)
+            st.dataframe(df_tipos, use_container_width=True, hide_index=True)
+            
+            # Graficar
+            st.bar_chart(data=df_tipos.set_index("Tipo de Documento"))
+            
+        with col_chart2:
+            st.subheader("Clasificación por Categoría/Tema")
+            cursor.execute("SELECT categoria_nombre, COUNT(*) as c FROM normativas GROUP BY categoria_nombre ORDER BY c DESC")
+            data_cat = cursor.fetchall()
+            df_cat = pd.DataFrame([dict(row) for row in data_cat])
+            df_cat.rename(columns={"categoria_nombre": "Categoría/Tema", "c": "Cantidad"}, inplace=True)
+            st.dataframe(df_cat, use_container_width=True, hide_index=True)
+            
+            # Graficar
+            st.bar_chart(data=df_cat.set_index("Categoría/Tema"))
+            
+        # Tabla detallada de temas
+        st.divider()
+        st.subheader("Detalle de Temáticas Comunes")
+        st.write("Temáticas específicas extraídas por la IA de la base de datos municipal.")
+        cursor.execute('''
+            SELECT DISTINCT(n.categoria_nombre), COUNT(*) as cantidad
+            FROM normativas n
+            GROUP BY n.categoria_nombre
+            ORDER BY cantidad DESC
+            LIMIT 15
+        ''')
+        data_temas = cursor.fetchall()
+        df_temas = pd.DataFrame([dict(row) for row in data_temas])
+        df_temas.rename(columns={"categoria_nombre": "Temática / Categoría", "cantidad": "Documentos"}, inplace=True)
+        st.dataframe(df_temas, use_container_width=True, hide_index=True)
+        
+    else:
+        st.info("La base de datos está vacía. Procesa algunos documentos para ver las estadísticas.")
+        
+    conn.close()
