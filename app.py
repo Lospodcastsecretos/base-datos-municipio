@@ -621,6 +621,110 @@ with tab5:
     st.header("🕸️ Mapa de Conexiones (Grafo)")
     st.write("Visualiza cómo las normativas se referencian entre sí.")
     
+    # Buscador de Relaciones duplicado para comodidad del usuario
+    st.markdown("### 🔍 Consultas de Relaciones Jurídicas")
+    all_normativas = database.get_all_normativas()
+    if all_normativas:
+        # Filtrar para dejar solo normas con relaciones (origen o destino)
+        origenes = set()
+        destinos = set()
+        for n in all_normativas:
+            if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
+                try:
+                    rels = json.loads(n['relaciones_juridicas'])
+                    if rels:
+                        origenes.add(n['id'])
+                        for r in rels:
+                            dest = str(r.get('norma_destino', '')).strip().lower()
+                            if dest:
+                                sorted_dest = dest
+                                destinos.add(sorted_dest)
+                except Exception:
+                    pass
+        
+        normas_filtradas = []
+        import re
+        for n in all_normativas:
+            if n['id'] in origenes:
+                normas_filtradas.append(n)
+                continue
+            num_str = str(n['numero']).strip()
+            es_destino = False
+            if num_str:
+                for d in destinos:
+                    if re.search(rf"\b{re.escape(num_str.lower())}\b", d):
+                        es_destino = True
+                        break
+            if es_destino:
+                normas_filtradas.append(n)
+        
+        if not normas_filtradas:
+            st.warning("⚠️ No se encontraron normativas con relaciones registradas en la base de datos.")
+        else:
+            normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in normas_filtradas}
+            
+            col_r1, col_r2, col_r3 = st.columns(3)
+            with col_r1:
+                direccion = st.selectbox("Tipo de consulta:", [
+                    "¿Qué normas afectaron a... (Impactos Recibidos)", 
+                    "¿A qué normas afectó... (Impactos Generados)"
+                ], key="tab5_rel_direccion")
+            with col_r2:
+                selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()), key="tab5_rel_selected_norm")
+                selected_norm = normativas_options[selected_norm_label]
+            with col_r3:
+                accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"], key="tab5_rel_accion")
+
+            if st.button("Buscar Relaciones", type="primary", key="tab5_rel_buscar_btn"):
+                resultados_rel = []
+                if "Generados" in direccion:
+                    if selected_norm['relaciones_juridicas'] and selected_norm['relaciones_juridicas'] not in ['[]', 'None']:
+                        try:
+                            rels = json.loads(selected_norm['relaciones_juridicas'])
+                            for r in rels:
+                                act = str(r.get('accion', '')).lower()
+                                if accion_filter == "Cualquier Acción" or accion_filter in act:
+                                    resultados_rel.append({
+                                        "Norma Origen": f"{selected_norm['tipo_nombre']} Nº {selected_norm['numero']}",
+                                        "Acción Jurídica": str(r.get('accion', '')).upper(),
+                                        "Norma Destino (Afectada)": str(r.get('norma_destino', '')).upper(),
+                                        "Detalle Adicional": str(r.get('detalle', ''))
+                                    })
+                        except Exception:
+                            pass
+                else:
+                    num_para_buscar = str(selected_norm['numero']).strip()
+                    for n in all_normativas:
+                        if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
+                            try:
+                                rels = json.loads(n['relaciones_juridicas'])
+                                for r in rels:
+                                    target_str = str(r.get('norma_destino', '')).strip()
+                                    if target_str:
+                                        if re.search(rf"\b{re.escape(num_para_buscar)}\b", target_str.lower()):
+                                            act = str(r.get('accion', '')).lower()
+                                            if accion_filter == "Cualquier Acción" or accion_filter in act:
+                                                resultados_rel.append({
+                                                    "Norma Origen": f"{n['tipo_nombre']} Nº {n['numero']}",
+                                                    "Acción Jurídica": str(r.get('accion', '')).upper(),
+                                                    "Norma Destino (Afectada)": target_str.upper(),
+                                                    "Detalle Adicional": str(r.get('detalle', ''))
+                                                })
+                            except Exception:
+                                pass
+                
+                if resultados_rel:
+                    st.success(f"Se encontraron {len(resultados_rel)} relaciones jurídicas.")
+                    for i, rel in enumerate(resultados_rel):
+                        st.markdown(f"### {i+1}. {rel['Norma Origen']} ➔ {rel['Acción Jurídica']} ➔ {rel['Norma Destino (Afectada)']}")
+                        st.markdown(f"**Detalle del Análisis:** {rel['Detalle Adicional']}")
+                        st.divider()
+                else:
+                    st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
+
+    st.divider()
+    st.markdown("### 🕸️ Visualización del Grafo")
+    
     col_g1, col_g2 = st.columns([3, 1])
     
     with col_g2:
