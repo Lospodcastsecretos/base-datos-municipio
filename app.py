@@ -132,7 +132,7 @@ def render_buscador_relaciones(all_normativas, key_prefix=""):
                 st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas", "📊 Estado de la Base de Datos", "🤖 Asistente Jurídico (RAG)"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas", "📊 Estado de la Base de Datos", "🤖 Asistente Jurídico (RAG)", "🔮 Búsqueda Híbrida 3-Vías"])
 
 with tab1:
     st.header("Cargar y Procesar Normativas")
@@ -995,3 +995,102 @@ with tab8:
                     st.session_state.rag_history.append({"role": "assistant", "content": respuesta})
                 except Exception as e:
                     st.error(f"Error procesando la respuesta: {e}")
+
+with tab9:
+    st.header("🔮 Búsqueda Híbrida 3-Vías (RRF)")
+    st.write("Este buscador unifica los tres motores de la base de datos (IA Semántica, Palabras Clave y Grafo de Relaciones) para encontrar los documentos más relevantes usando Reciprocal Rank Fusion.")
+    
+    query_hibrida = st.text_input("Ingresa tu búsqueda (ej: ordenanza sobre estacionamiento medido)", key="hibrida_q")
+    
+    if st.button("🔍 Buscar en 3 Vías", type="primary"):
+        if not query_hibrida:
+            st.warning("⚠️ Ingresa un término de búsqueda.")
+        else:
+            with st.spinner("Ejecutando motores y calculando Reciprocal Rank Fusion (RRF)..."):
+                all_norms_db = database.get_all_normativas()
+                norm_dict = {str(n['id']): n for n in all_norms_db}
+                
+                # 1. Búsqueda Semántica (IA)
+                rrf_scores = {}
+                for n_id in norm_dict.keys():
+                    rrf_scores[n_id] = {'score': 0.0, 'reasons': []}
+                    
+                try:
+                    query_embedding = generate_embedding(query_hibrida)
+                    sem_results = database.search_normativas(query_embedding, n_results=50)
+                    if sem_results and sem_results['ids'] and len(sem_results['ids'][0]) > 0:
+                        for rank, doc_id in enumerate(sem_results['ids'][0]):
+                            if doc_id in rrf_scores:
+                                rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
+                                if rank < 10:
+                                    rrf_scores[doc_id]['reasons'].append(f"🎯 Semántica #{rank+1}")
+                except Exception as e:
+                    st.error(f"Error en IA Semántica: {e}")
+                    
+                # 2. Búsqueda por Texto Exacto (FTS5)
+                # Aplicamos limpieza rápida tipo stopwords
+                stopwords = ["ordenanza", "sobre", "el", "la", "los", "las", "un", "una", "de", "del", "y", "en", "para", "que", "con"]
+                clean_terms = [word for word in query_hibrida.lower().split() if word not in stopwords and len(word) > 2]
+                if clean_terms:
+                    fts_query = " OR ".join([f'"{term}"*' for term in clean_terms])
+                    try:
+                        fts_results = database.search_normativas_fts(fts_query)
+                        for rank, res in enumerate(fts_results):
+                            doc_id = str(res['id'])
+                            if doc_id in rrf_scores:
+                                rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
+                                if rank < 10:
+                                    rrf_scores[doc_id]['reasons'].append(f"🔑 Palabra Clave #{rank+1}")
+                    except Exception as e:
+                        pass
+                
+                # 3. Factor de Relaciones (Conectividad)
+                rel_counts = []
+                for n in all_norms_db:
+                    count = 0
+                    if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
+                        try:
+                            rels = json.loads(n['relaciones_juridicas'])
+                            count = len(rels)
+                        except:
+                            pass
+                    rel_counts.append((str(n['id']), count))
+                
+                rel_counts.sort(key=lambda x: x[1], reverse=True)
+                for rank, (doc_id, count) in enumerate(rel_counts):
+                    if doc_id in rrf_scores and count > 0:
+                        rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
+                        if rank < 10:
+                            rrf_scores[doc_id]['reasons'].append(f"🕸️ Alta Conectividad (#{rank+1}, {count} rels)")
+                
+                final_ranking = []
+                for doc_id, data in rrf_scores.items():
+                    if data['score'] > 0:
+                        final_ranking.append({
+                            'doc': norm_dict[doc_id],
+                            'score': data['score'],
+                            'reasons': data['reasons']
+                        })
+                
+                final_ranking.sort(key=lambda x: x['score'], reverse=True)
+                
+                if final_ranking:
+                    st.success(f"Se fusionaron resultados. Mostrando los mejores {min(20, len(final_ranking))} documentos:")
+                    for i, item in enumerate(final_ranking[:20]):
+                        doc = item['doc']
+                        st.markdown(f"### {i+1}. {doc.get('tipo_nombre', 'N/A')} Nº {doc.get('numero', 'N/A')} — {doc.get('titulo', 'N/A')}")
+                        
+                        badges_str = " ".join([f"`{r}`" for r in item['reasons']])
+                        if badges_str:
+                            st.markdown(f"**Por qué se encontró:** {badges_str} *(Score RRF: {item['score']:.4f})*")
+                            
+                        st.markdown(f"**Resumen IA:** {doc.get('resumen_ia', 'N/A')}")
+                        
+                        texto = str(doc.get('texto_completo', ''))
+                        if texto:
+                            fragmento = texto[:400]
+                            st.markdown(f"**Fragmento:** _{fragmento}..._")
+                        
+                        st.divider()
+                else:
+                    st.info("Ningún documento coincidió con la búsqueda en ninguno de los 3 motores.")
