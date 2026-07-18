@@ -516,17 +516,50 @@ with tab4:
         all_normativas = database.get_all_normativas()
         
         if all_normativas:
-            normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in all_normativas}
+            # Filtrar para dejar solo normas con relaciones (origen o destino)
+            origenes = set()
+            destinos = set()
+            for n in all_normativas:
+                if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
+                    try:
+                        rels = json.loads(n['relaciones_juridicas'])
+                        if rels:
+                            origenes.add(n['id'])
+                            for r in rels:
+                                dest = str(r.get('norma_destino', '')).strip().lower()
+                                if dest:
+                                    destinos.add(dest)
+                    except Exception:
+                        pass
             
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                direccion = st.selectbox("Tipo de consulta:", [
-                    "¿Qué normas afectaron a... (Impactos Recibidos)", 
-                    "¿A qué normas afectó... (Impactos Generados)"
-                ])
-            with col2:
-                selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()))
-                selected_norm = normativas_options[selected_norm_label]
+            normas_filtradas = []
+            for n in all_normativas:
+                if n['id'] in origenes:
+                    normas_filtradas.append(n)
+                    continue
+                num_str = str(n['numero']).lower()
+                es_destino = False
+                for d in destinos:
+                    if num_str and (num_str in d or d in num_str):
+                        es_destino = True
+                        break
+                if es_destino:
+                    normas_filtradas.append(n)
+            
+            if not normas_filtradas:
+                st.warning("No se encontraron normativas con relaciones registradas en la base de datos.")
+            else:
+                normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in normas_filtradas}
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    direccion = st.selectbox("Tipo de consulta:", [
+                        "¿Qué normas afectaron a... (Impactos Recibidos)", 
+                        "¿A qué normas afectó... (Impactos Generados)"
+                    ])
+                with col2:
+                    selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()))
+                    selected_norm = normativas_options[selected_norm_label]
             with col3:
                 accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"])
 
