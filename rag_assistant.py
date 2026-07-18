@@ -6,22 +6,42 @@ from ai_extractor import generate_embedding
 
 def retrieve_context(query: str, n_results: int = 5) -> str:
     """
-    Convierte la pregunta en un embedding y busca los N documentos más relevantes.
-    Devuelve un string concatenado con el contexto para el LLM.
+    Realiza una búsqueda híbrida (Semántica + Exacta) para recuperar los documentos relevantes.
+    Extrae fragmentos inteligentes alrededor de las palabras clave para mejorar el RAG.
     """
     try:
-        query_embedding = generate_embedding(query)
-        results = database.search_normativas(query_embedding, n_results=n_results)
+        doc_ids = set()
         
+        # 1. Búsqueda Semántica (ChromaDB)
+        try:
+            query_embedding = generate_embedding(query)
+            semantic_results = database.search_normativas(query_embedding, n_results=n_results)
+            if semantic_results and semantic_results['ids'] and len(semantic_results['ids'][0]) > 0:
+                for doc_id_str in semantic_results['ids'][0]:
+                    doc_ids.add(int(doc_id_str))
+        except Exception as e:
+            print(f"Error en búsqueda semántica RAG: {e}")
+            
+        # 2. Búsqueda Exacta (FTS5)
+        try:
+            fts_results = database.search_normativas_fts(query)
+            if fts_results:
+                for i, doc in enumerate(fts_results):
+                    if i >= n_results: break
+                    doc_ids.add(int(doc['id']))
+        except Exception as e:
+            print(f"Error en búsqueda FTS RAG: {e}")
+            
         contexto_text = ""
-        if results and results['ids'] and len(results['ids'][0]) > 0:
-            # Recuperar normativas completas para tener título, número y artículos
-            conn = sqlite3.connect("normativas.db")
+        if doc_ids:
+            conn = sqlite3.connect("normativas.db", timeout=15)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
-            for i, doc_id_str in enumerate(results['ids'][0]):
-                doc_id = int(doc_id_str)
+            # Palabras clave de la query para buscar fragmentos (ignorando muy cortas)
+            keywords = [w.lower() for w in query.split() if len(w) > 3]
+            
+            for doc_id in list(doc_ids)[:10]: # Máximo 10 documentos
                 cursor.execute("SELECT numero, tipo_nombre, titulo, texto_completo FROM normativas WHERE id = ?", (doc_id,))
                 row = cursor.fetchone()
                 if row:
@@ -30,14 +50,30 @@ def retrieve_context(query: str, n_results: int = 5) -> str:
                     titulo = row['titulo'] or 'Sin título'
                     texto = row['texto_completo'] or ''
                     
+                    # Buscar el mejor fragmento
+                    texto_lower = texto.lower()
+                    match_idx = -1
+                    for kw in keywords:
+                        idx = texto_lower.find(kw)
+                        if idx != -1:
+                            match_idx = idx
+                            break
+                            
+                    if match_idx != -1:
+                        # Extraer ventana (hasta ~12,000 caracteres) alrededor de la coincidencia
+                        start = max(0, match_idx - 4000)
+                        end = min(len(texto), match_idx + 8000)
+                        fragmento = texto[start:end]
+                    else:
+                        fragmento = texto[:12000]
+                        
                     contexto_text += f"\n--- [FUENTE: {tipo} Nº {numero} - {titulo}] ---\n"
-                    # Limitamos el texto a ~3000 caracteres por documento para no saturar el prompt
-                    contexto_text += texto[:3000] + "\n"
+                    contexto_text += fragmento + "\n"
             conn.close()
             
         return contexto_text
     except Exception as e:
-        print(f"Error recuperando contexto: {e}")
+        print(f"Error recuperando contexto general: {e}")
         return ""
 
 def answer_question_with_rag(query: str, chat_history: list, engine: str = "DeepSeek") -> str:
