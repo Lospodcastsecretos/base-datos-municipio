@@ -453,63 +453,127 @@ with tab4:
     
     tipo_busqueda = st.radio(
         "Selecciona el método de búsqueda:",
-        options=["Conceptos e Ideas (Búsqueda Semántica con IA)", "Palabras Clave Exactas (Búsqueda por Texto Completo)"],
+        options=["Conceptos e Ideas (Búsqueda Semántica con IA)", "Palabras Clave Exactas (Búsqueda por Texto Completo)", "Relaciones Jurídicas (Grafo Jurídico)"],
         horizontal=True
     )
     
-    query = st.text_input("¿Qué estás buscando? (Ej. 'estacionamiento medido' o 'Ordenanza 9078')")
-    
-    if st.button("Buscar", type="primary") and query:
-        if tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
-            if not os.getenv("GOOGLE_API_KEY"):
-                st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env para generar vectores de búsqueda.")
+    if tipo_busqueda in ["Conceptos e Ideas (Búsqueda Semántica con IA)", "Palabras Clave Exactas (Búsqueda por Texto Completo)"]:
+        query = st.text_input("¿Qué estás buscando? (Ej. 'estacionamiento medido' o 'Ordenanza 9078')")
+        
+        if st.button("Buscar", type="primary") and query:
+            if tipo_busqueda == "Conceptos e Ideas (Búsqueda Semántica con IA)":
+                if not os.getenv("GOOGLE_API_KEY"):
+                    st.error("⚠️ Falta configurar GOOGLE_API_KEY en el archivo .env para generar vectores de búsqueda.")
+                else:
+                    with st.spinner("Generando vector de búsqueda y consultando ChromaDB..."):
+                        try:
+                            # Generar embedding para la query
+                            query_embedding = generate_embedding(query)
+                            results = database.search_normativas(query_embedding, n_results=10)
+                            
+                            if results and results['ids'] and len(results['ids'][0]) > 0:
+                                st.success(f"Se encontraron {len(results['ids'][0])} resultados semánticos relevantes.")
+                                for i in range(len(results['ids'][0])):
+                                    st.markdown(f"### {i+1}. Resultado Semántico")
+                                    meta = results['metadatas'][0][i]
+                                    st.markdown(f"**Norma Número:** {meta.get('numero', 'N/A')} - **Título:** {meta.get('titulo', 'N/A')}")
+                                    texto_completo = results['documents'][0][i]
+                                    st.markdown(f"**Fragmento:** _{texto_completo[:500]}..._")
+                                    st.divider()
+                            else:
+                                st.info("No se encontraron resultados semánticos similares.")
+                        except Exception as e:
+                            st.error(f"Error en la búsqueda semántica: {e}")
             else:
-                with st.spinner("Generando vector de búsqueda y consultando ChromaDB..."):
+                # Búsqueda FTS5 (Texto Completo)
+                with st.spinner("Buscando en el índice FTS5 de SQLite..."):
                     try:
-                        # Generar embedding para la query
-                        query_embedding = generate_embedding(query)
-                        results = database.search_normativas(query_embedding, n_results=10)
-                        
-                        if results and results['ids'] and len(results['ids'][0]) > 0:
-                            st.success(f"Se encontraron {len(results['ids'][0])} resultados semánticos relevantes.")
-                            for i in range(len(results['ids'][0])):
-                                st.markdown(f"### {i+1}. Resultado Semántico")
-                                meta = results['metadatas'][0][i]
-                                st.markdown(f"**Norma Número:** {meta.get('numero', 'N/A')} - **Título:** {meta.get('titulo', 'N/A')}")
-                                texto_completo = results['documents'][0][i]
-                                st.markdown(f"**Fragmento:** _{texto_completo[:500]}..._")
+                        results = database.search_normativas_fts(query)
+                        if results:
+                            st.success(f"Se encontraron {len(results)} documentos con coincidencia exacta.")
+                            for i, doc in enumerate(results):
+                                st.markdown(f"### {i+1}. Coincidencia por Palabra Clave")
+                                st.markdown(f"**Norma Número:** {doc['numero']} — **Tipo:** {doc['tipo_nombre']} — **Título:** {doc['titulo']}")
+                                st.markdown(f"**Fecha:** {doc['fecha']} — **Estado:** {'Vigente' if doc['vigente'] else 'No Vigente/Derogada'}")
+                                st.markdown(f"**Resumen IA:** {doc['resumen_ia']}")
+                                
+                                # Mostrar fragmento resaltado inteligente
+                                match_idx = doc['texto_completo'].lower().find(query.lower())
+                                if match_idx != -1:
+                                    start = max(0, match_idx - 100)
+                                    end = min(len(doc['texto_completo']), match_idx + 400)
+                                    fragment = doc['texto_completo'][start:end]
+                                    st.markdown(f"**Fragmento coincidente:** ..._{fragment}_...")
+                                else:
+                                    st.markdown(f"**Fragmento:** _{doc['texto_completo'][:500]}..._")
                                 st.divider()
                         else:
-                            st.info("No se encontraron resultados semánticos similares.")
+                            st.info("No se encontraron coincidencias exactas para los términos buscados.")
                     except Exception as e:
-                        st.error(f"Error en la búsqueda semántica: {e}")
-        else:
-            # Búsqueda FTS5 (Texto Completo)
-            with st.spinner("Buscando en el índice FTS5 de SQLite..."):
-                try:
-                    results = database.search_normativas_fts(query)
-                    if results:
-                        st.success(f"Se encontraron {len(results)} documentos con coincidencia exacta.")
-                        for i, doc in enumerate(results):
-                            st.markdown(f"### {i+1}. Coincidencia por Palabra Clave")
-                            st.markdown(f"**Norma Número:** {doc['numero']} — **Tipo:** {doc['tipo_nombre']} — **Título:** {doc['titulo']}")
-                            st.markdown(f"**Fecha:** {doc['fecha']} — **Estado:** {'Vigente' if doc['vigente'] else 'No Vigente/Derogada'}")
-                            st.markdown(f"**Resumen IA:** {doc['resumen_ia']}")
-                            
-                            # Mostrar fragmento resaltado inteligente
-                            match_idx = doc['texto_completo'].lower().find(query.lower())
-                            if match_idx != -1:
-                                start = max(0, match_idx - 100)
-                                end = min(len(doc['texto_completo']), match_idx + 400)
-                                fragment = doc['texto_completo'][start:end]
-                                st.markdown(f"**Fragmento coincidente:** ..._{fragment}_...")
-                            else:
-                                st.markdown(f"**Fragmento:** _{doc['texto_completo'][:500]}..._")
-                            st.divider()
-                    else:
-                        st.info("No se encontraron coincidencias exactas para los términos buscados.")
-                except Exception as e:
-                    st.error(f"Error en la búsqueda FTS5: {e}")
+                        st.error(f"Error en la búsqueda FTS5: {e}")
+    else:
+        st.info("💡 **Búsqueda por Relaciones:** Permite consultar qué normas ejercieron una acción (modificar, derogar) sobre otra, o qué impactos generó una norma en particular.")
+        all_normativas = database.get_all_normativas()
+        
+        if all_normativas:
+            normativas_options = {f"{n['tipo_nombre']} Nº {n['numero']}": n for n in all_normativas}
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                direccion = st.selectbox("Tipo de consulta:", [
+                    "¿Qué normas afectaron a... (Impactos Recibidos)", 
+                    "¿A qué normas afectó... (Impactos Generados)"
+                ])
+            with col2:
+                selected_norm_label = st.selectbox("Normativa objetivo:", list(normativas_options.keys()))
+                selected_norm = normativas_options[selected_norm_label]
+            with col3:
+                accion_filter = st.selectbox("Filtrar por Acción:", ["Cualquier Acción", "modifica", "deroga", "reglamenta", "amplia"])
+
+            if st.button("Buscar Relaciones", type="primary"):
+                resultados_rel = []
+                if "Generados" in direccion:
+                    if selected_norm['relaciones_juridicas'] and selected_norm['relaciones_juridicas'] not in ['[]', 'None']:
+                        try:
+                            rels = json.loads(selected_norm['relaciones_juridicas'])
+                            for r in rels:
+                                act = str(r.get('accion', '')).lower()
+                                if accion_filter == "Cualquier Acción" or accion_filter in act:
+                                    resultados_rel.append({
+                                        "Norma Origen": f"{selected_norm['tipo_nombre']} Nº {selected_norm['numero']}",
+                                        "Acción Jurídica": str(r.get('accion', '')).upper(),
+                                        "Norma Destino (Afectada)": str(r.get('norma_destino', '')).upper(),
+                                        "Detalle Adicional": str(r.get('detalle', ''))
+                                    })
+                        except Exception:
+                            pass
+                else:
+                    for n in all_normativas:
+                        if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
+                            try:
+                                rels = json.loads(n['relaciones_juridicas'])
+                                for r in rels:
+                                    target_str = str(r.get('norma_destino', '')).lower()
+                                    if str(selected_norm['numero']).lower() in target_str or target_str in str(selected_norm['numero']).lower():
+                                        act = str(r.get('accion', '')).lower()
+                                        if accion_filter == "Cualquier Acción" or accion_filter in act:
+                                            resultados_rel.append({
+                                                "Norma Origen": f"{n['tipo_nombre']} Nº {n['numero']}",
+                                                "Acción Jurídica": str(r.get('accion', '')).upper(),
+                                                "Norma Destino (Afectada)": target_str.upper(),
+                                                "Detalle Adicional": str(r.get('detalle', ''))
+                                            })
+                            except Exception:
+                                pass
+                
+                if resultados_rel:
+                    st.success(f"Se encontraron {len(resultados_rel)} relaciones jurídicas.")
+                    for i, rel in enumerate(resultados_rel):
+                        st.markdown(f"### {i+1}. {rel['Norma Origen']} ➔ {rel['Acción Jurídica']} ➔ {rel['Norma Destino (Afectada)']}")
+                        st.markdown(f"**Detalle del Análisis:** {rel['Detalle Adicional']}")
+                        st.divider()
+                else:
+                    st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
 
 with tab5:
     st.header("🕸️ Mapa de Conexiones (Grafo)")
