@@ -242,6 +242,67 @@ with tab2:
             with t_tab:
                 st.subheader("Estructura de la Norma y Línea de Tiempo")
                 
+                # GRÁFICO DE LÍNEA DE TIEMPO INTERACTIVO (PLOTLY)
+                try:
+                    import plotly.express as px
+                    import sqlite3
+                    
+                    conn_t = sqlite3.connect("normativas.db", timeout=15)
+                    conn_t.row_factory = sqlite3.Row
+                    c_t = conn_t.cursor()
+                    
+                    c_t.execute('''
+                        SELECT a.numero, a.version_numero, a.fecha_desde, a.fecha_hasta, a.texto, n2.tipo_nombre as f_tipo, n2.numero as f_num
+                        FROM articulos a
+                        LEFT JOIN normativas n2 ON a.fuente_normativa_id = n2.id
+                        WHERE a.normativa_id = ?
+                    ''', (int(selected_id),))
+                    historial_completo = c_t.fetchall()
+                    conn_t.close()
+                    
+                    if historial_completo:
+                        timeline_data = []
+                        today_str = datetime.date.today().strftime('%Y-%m-%d')
+                        
+                        for h in historial_completo:
+                            inicio = h['fecha_desde'] if h['fecha_desde'] else detail['fecha']
+                            fin = h['fecha_hasta'] if h['fecha_hasta'] else today_str
+                            
+                            if not inicio or len(inicio) < 4: continue
+                            
+                            evento = "Original" if h['version_numero'] == 1 else f"Modif. (v{h['version_numero']})"
+                            detalle_texto = f"Por {h['f_tipo'] or 'Norma'} {h['f_num'] or ''}" if h['version_numero'] > 1 else "Versión Original"
+                            
+                            timeline_data.append(dict(
+                                Artículo=f"Art. {h['numero']}",
+                                Inicio=inicio,
+                                Fin=fin,
+                                Versión=f"v{h['version_numero']} ({evento})",
+                                Detalle=detalle_texto
+                            ))
+                            
+                        if timeline_data:
+                            df_timeline = pd.DataFrame(timeline_data)
+                            fig = px.timeline(
+                                df_timeline, 
+                                x_start="Inicio", 
+                                x_end="Fin", 
+                                y="Artículo", 
+                                color="Versión", 
+                                hover_data=["Detalle"],
+                                title="Ciclo de Vida Histórico de la Norma (Línea de Tiempo Interactiva)"
+                            )
+                            fig.update_yaxes(autorange="reversed")
+                            altura = max(350, len(df_timeline['Artículo'].unique()) * 30 + 100)
+                            fig.update_layout(height=altura, margin=dict(t=50, b=20, l=20, r=20))
+                            
+                            st.plotly_chart(fig, use_container_width=True)
+                            st.divider()
+                except ImportError:
+                    pass
+                except Exception as e:
+                    st.error(f"Error generando línea de tiempo visual: {e}")
+                    
                 # Selector de fecha para línea de tiempo
                 usar_timeline = st.checkbox("🔍 Habilitar Línea de Tiempo Histórica")
                 fecha_filtro = None
