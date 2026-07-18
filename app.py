@@ -1012,18 +1012,18 @@ with tab9:
                 
                 # 1. Búsqueda Semántica (IA)
                 rrf_scores = {}
-                for n_id in norm_dict.keys():
-                    rrf_scores[n_id] = {'score': 0.0, 'reasons': []}
                     
                 try:
                     query_embedding = generate_embedding(query_hibrida)
                     sem_results = database.search_normativas(query_embedding, n_results=50)
                     if sem_results and sem_results['ids'] and len(sem_results['ids'][0]) > 0:
                         for rank, doc_id in enumerate(sem_results['ids'][0]):
-                            if doc_id in rrf_scores:
-                                rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
-                                if rank < 10:
-                                    rrf_scores[doc_id]['reasons'].append(f"🎯 Semántica #{rank+1}")
+                            # Solo agregamos al score si está en el top 50
+                            if doc_id not in rrf_scores:
+                                rrf_scores[doc_id] = {'score': 0.0, 'reasons': []}
+                            rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
+                            if rank < 10:
+                                rrf_scores[doc_id]['reasons'].append(f"🎯 Semántica #{rank+1}")
                 except Exception as e:
                     st.error(f"Error en IA Semántica: {e}")
                     
@@ -1037,10 +1037,11 @@ with tab9:
                         fts_results = database.search_normativas_fts(fts_query)
                         for rank, res in enumerate(fts_results):
                             doc_id = str(res['id'])
-                            if doc_id in rrf_scores:
-                                rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
-                                if rank < 10:
-                                    rrf_scores[doc_id]['reasons'].append(f"🔑 Palabra Clave #{rank+1}")
+                            if doc_id not in rrf_scores:
+                                rrf_scores[doc_id] = {'score': 0.0, 'reasons': []}
+                            rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
+                            if rank < 10:
+                                rrf_scores[doc_id]['reasons'].append(f"🔑 Palabra Clave #{rank+1}")
                     except Exception as e:
                         pass
                 
