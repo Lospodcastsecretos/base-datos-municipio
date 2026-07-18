@@ -22,13 +22,19 @@ def retrieve_context(query: str, n_results: int = 5) -> str:
         except Exception as e:
             print(f"Error en búsqueda semántica RAG: {e}")
             
-        # 2. Búsqueda Exacta (FTS5)
+        # 2. Búsqueda Exacta (FTS5) - Optimizada para lenguaje natural
         try:
-            fts_results = database.search_normativas_fts(query)
-            if fts_results:
-                for i, doc in enumerate(fts_results):
-                    if i >= n_results: break
-                    doc_ids.add(int(doc['id']))
+            import re
+            words = re.findall(r'\b\w+\b', query.lower())
+            stopwords = {'hola', 'decime', 'que', 'habla', 'sobre', 'los', 'las', 'el', 'la', 'un', 'una', 'cuales', 'son', 'reglas', 'para', 'segun', 'ordenanza', 'ley', 'decreto', 'municipal', 'como', 'cuando', 'donde', 'cual', 'cuales', 'por', 'con', 'del', 'al', 'las'}
+            fts_keywords = [w for w in words if w not in stopwords and len(w) > 3]
+            if fts_keywords:
+                fts_query = " OR ".join(fts_keywords)
+                fts_results = database.search_normativas_fts(fts_query)
+                if fts_results:
+                    for i, doc in enumerate(fts_results):
+                        if i >= n_results: break
+                        doc_ids.add(int(doc['id']))
         except Exception as e:
             print(f"Error en búsqueda FTS RAG: {e}")
             
