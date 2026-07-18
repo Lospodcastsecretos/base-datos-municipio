@@ -1015,10 +1015,10 @@ with tab9:
                     
                 try:
                     query_embedding = generate_embedding(query_hibrida)
-                    sem_results = database.search_normativas(query_embedding, n_results=50)
+                    # Limitamos a 15 para no meter "basura semántica" de la cola larga
+                    sem_results = database.search_normativas(query_embedding, n_results=15)
                     if sem_results and sem_results['ids'] and len(sem_results['ids'][0]) > 0:
                         for rank, doc_id in enumerate(sem_results['ids'][0]):
-                            # Solo agregamos al score si está en el top 50
                             if doc_id not in rrf_scores:
                                 rrf_scores[doc_id] = {'score': 0.0, 'reasons': []}
                             rrf_scores[doc_id]['score'] += 1.0 / (60 + rank + 1)
@@ -1032,10 +1032,12 @@ with tab9:
                 stopwords = ["ordenanza", "sobre", "el", "la", "los", "las", "un", "una", "de", "del", "y", "en", "para", "que", "con"]
                 clean_terms = [word for word in query_hibrida.lower().split() if word not in stopwords and len(word) > 2]
                 if clean_terms:
-                    fts_query = " OR ".join([f'"{term}"*' for term in clean_terms])
+                    # Usamos AND para forzar a que contenga TODAS las palabras clave (búsqueda exacta)
+                    fts_query = " AND ".join([f'"{term}"*' for term in clean_terms])
                     try:
                         fts_results = database.search_normativas_fts(fts_query)
-                        for rank, res in enumerate(fts_results):
+                        # Limitamos a los 15 mejores
+                        for rank, res in enumerate(fts_results[:15]):
                             doc_id = str(res['id'])
                             if doc_id not in rrf_scores:
                                 rrf_scores[doc_id] = {'score': 0.0, 'reasons': []}
