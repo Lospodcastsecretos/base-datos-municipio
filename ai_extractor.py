@@ -33,8 +33,11 @@ def extract_metadata_and_summary(texto: str) -> dict:
     """
     Uses Gemini to extract structured metadata and generate a summary from the document text.
     """
-    if not api_key:
+    load_dotenv()
+    current_key = os.getenv("GOOGLE_API_KEY")
+    if not current_key:
         raise ValueError("GOOGLE_API_KEY no está configurada. Por favor, añádela al archivo .env")
+    genai.configure(api_key=current_key)
 
     # Use the latest available Flash model to avoid version deprecation errors
     model = genai.GenerativeModel('gemini-flash-latest')

@@ -15,11 +15,13 @@ def extract_metadata_and_summary_deepseek(texto: str) -> dict:
     """
     Uses DeepSeek API (via OpenAI standard) to extract structured metadata and generate a summary.
     """
-    if not api_key:
+    load_dotenv()
+    current_key = os.getenv("DEEPSEEK_API_KEY")
+    if not current_key:
         raise ValueError("DEEPSEEK_API_KEY no está configurada. Por favor, añádela al archivo .env")
 
     # Iniciar cliente compatible con OpenAI apuntando a DeepSeek
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    client = OpenAI(api_key=current_key, base_url="https://api.deepseek.com")
     
     # Preparamos el esquema JSON deseado para el prompt
     schema_ejemplo = '''

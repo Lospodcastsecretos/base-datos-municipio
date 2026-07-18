@@ -14,11 +14,13 @@ def extract_metadata_and_summary_openai(texto: str) -> dict:
     """
     Uses OpenAI API (gpt-4o-mini) to extract structured metadata and generate a summary.
     """
-    if not api_key:
+    load_dotenv()
+    current_key = os.getenv("OPENAI_API_KEY")
+    if not current_key:
         raise ValueError("OPENAI_API_KEY no está configurada. Por favor, añádela al archivo .env")
 
     # Iniciar cliente oficial de OpenAI
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=current_key)
     
     # Preparamos el esquema JSON deseado para el prompt
     schema_ejemplo = '''
