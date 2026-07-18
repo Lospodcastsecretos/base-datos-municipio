@@ -101,7 +101,10 @@ with tab1:
                         error_msg = str(e)
                         
                     if "ResourceExhausted" in error_msg or "429" in error_msg:
-                        st.error(f"❌ Error al procesar {file.name}: Límite de cuota gratuita superado (ResourceExhausted). Intenta más tarde o procesa este documento manualmente.")
+                        if "OpenAI" in ia_engine:
+                            st.error(f"❌ Error al procesar {file.name}: Límite de peticiones o Saldo Insuficiente en OpenAI (Error 429). Nota: Si acabas de cargar saldo, ten en cuenta que OpenAI puede tardar entre 10 y 20 minutos en activar tu cuenta nuevamente.")
+                        else:
+                            st.error(f"❌ Error al procesar {file.name}: Límite de cuota gratuita superado en Gemini (ResourceExhausted). Intenta más tarde o procesa este documento manualmente.")
                     elif "InvalidArgument" in error_msg or "400" in error_msg:
                         st.error(f"❌ Error al procesar {file.name}: El archivo contiene datos que la IA no pudo procesar (InvalidArgument). Es posible que el texto extraído contenga caracteres corruptos o no sea compatible con la API. Error técnico: {error_msg}")
                     else:
