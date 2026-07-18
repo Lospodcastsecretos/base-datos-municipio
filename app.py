@@ -5,7 +5,14 @@ import shutil
 import tempfile
 import datetime
 import sys
+import sqlite3
+import re
+import time
+import subprocess
+import plotly.express as px
+import streamlit.components.v1 as components
 import json
+import report_generator
 from document_processor import process_document
 from ai_extractor import extract_metadata_and_summary, generate_embedding
 import database
@@ -21,7 +28,6 @@ initialize_database()
 
 @st.cache_data(show_spinner=False)
 def get_cached_report_bytes(norma_id: int):
-    import report_generator
     return report_generator.generate_report(norma_id).getvalue()
 
 def render_buscador_relaciones(all_normativas, key_prefix=""):
@@ -45,7 +51,6 @@ def render_buscador_relaciones(all_normativas, key_prefix=""):
                 pass
     
     normas_filtradas = []
-    import re
     for n in all_normativas:
         if n['id'] in origenes:
             normas_filtradas.append(n)
@@ -195,11 +200,9 @@ with tab1:
                     if len(uploaded_files) > 1 and i < len(uploaded_files) - 1:
                         if "Google" in ia_engine:
                             status_text.text(f"Esperando 60 segundos para no exceder el límite gratuito de Google...")
-                            import time
                             time.sleep(60)
                         else:
                             # OpenAI y DeepSeek son rápidos
-                            import time
                             time.sleep(1)
                             
                 except Exception as e:
@@ -258,7 +261,6 @@ with tab2:
                 st.error("⚠️ Falta configurar OPENAI_API_KEY en el archivo .env para ejecutar este proceso.")
             else:
                 with st.spinner("Llamando a OpenAI para estructurar documentos antiguos... Revisa la consola negra para ver el progreso detallado. Puede tardar varios minutos."):
-                    import subprocess
                     subprocess.Popen([sys.executable, "-u", "backfill_articulos.py", "--engine", "OpenAI"])
                     st.success("¡Proceso de segmentación iniciado en segundo plano! Revisa la consola negra.")
     with col_back2:
@@ -267,7 +269,6 @@ with tab2:
                 st.error("⚠️ Falta configurar OPENAI_API_KEY en el archivo .env para ejecutar este proceso.")
             else:
                 with st.spinner("Llamando a OpenAI para consolidar textos modificados... Revisa la consola negra para ver el progreso detallado."):
-                    import subprocess
                     subprocess.Popen([sys.executable, "-u", "consolidator.py"])
                     st.success("¡Proceso de consolidación iniciado en segundo plano! Revisa la consola negra.")
     
@@ -365,9 +366,6 @@ with tab2:
                 
                 # GRÁFICO DE LÍNEA DE TIEMPO INTERACTIVO (PLOTLY)
                 try:
-                    import plotly.express as px
-                    import sqlite3
-                    import database
                     
                     conn_t = sqlite3.connect(database.DB_PATH, timeout=15)
                     conn_t.row_factory = sqlite3.Row
@@ -502,7 +500,6 @@ with tab2:
                 st.markdown("### 📥 Normas que afectan a esta norma (Relaciones Entrantes)")
                 
                 # Consultar SQLite para encontrar otras normas que apunten a esta
-                import sqlite3
                 conn = sqlite3.connect(database.DB_PATH)
                 cursor = conn.cursor()
                 cursor.execute("SELECT id, numero, tipo_nombre, relaciones_juridicas FROM normativas WHERE id != ?", (int(selected_id),))
@@ -798,7 +795,6 @@ with tab5:
                 
     with col_g1:
         if 'graph_html' in st.session_state:
-            import streamlit.components.v1 as components
             components.html(st.session_state['graph_html'], height=650)
         else:
             st.info("👈 Haz clic en 'Generar Mapa' para ver las conexiones.")
@@ -818,7 +814,6 @@ with tab6:
     
     # Extraer todas las relaciones a una lista plana para armar una tabla
     relaciones_planas = []
-    import json
     
     for norma in normativas:
         rels_str = norma.get('relaciones_juridicas')
@@ -870,7 +865,6 @@ with tab6:
                 st.session_state['graph_html_complex'] = html_data_complex
                 
         if 'graph_html_complex' in st.session_state:
-            import streamlit.components.v1 as components
             components.html(st.session_state['graph_html_complex'], height=650)
     else:
         st.info("Aún no se han detectado relaciones jurídicas complejas. Recuerda usar DeepSeek para procesar o escanear documentos y detectar si modifican o derogan a otros.")
@@ -879,7 +873,6 @@ with tab7:
     st.header("📊 Estado de la Base de Datos")
     st.write("Estadísticas y estado general de los documentos, clasificaciones y artículos almacenados en el sistema municipal.")
     
-    import sqlite3
     conn = sqlite3.connect(database.DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -901,7 +894,6 @@ with tab7:
     cursor.execute("SELECT relaciones_juridicas FROM normativas")
     rows_rels = cursor.fetchall()
     conexiones_totales = 0
-    import json
     for r in rows_rels:
         if r[0] and r[0] != '[]' and r[0] != 'None':
             try:
