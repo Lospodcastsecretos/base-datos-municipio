@@ -16,7 +16,7 @@ database.init_db()
 
 st.title("🏛️ Sistema de Gestión de Normativas Municipales")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📤 Procesar Documentos", "🗃️ Explorar Base de Datos", "🔍 Búsqueda Semántica", "🕸️ Mapa de Conexiones", "⚖️ Relaciones Jurídicas"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas"])
 
 with tab1:
     st.header("Cargar y Procesar Normativas")
@@ -359,6 +359,82 @@ with tab2:
         st.info("La base de datos está vacía. Procesa algunos documentos primero.")
 
 with tab3:
+    st.header("📅 Línea de Tiempo y Artículos")
+    st.write("Explora la estructura interna de una norma y viaja en el tiempo para ver qué texto regía en una fecha específica.")
+    
+    normativas_para_timeline = database.get_all_normativas()
+    
+    if normativas_para_timeline:
+        st.subheader("Seleccionar Norma")
+        
+        # Formatear el dropdown para identificar rápido las normas
+        def format_norma_label(n):
+            tipo = n.get('tipo_nombre', 'Norma')
+            num = n.get('numero', 'S/N')
+            title = n.get('titulo', '')
+            if len(title) > 60:
+                title = title[:57] + "..."
+            return f"{tipo} Nº {num} — {title}"
+            
+        selected_norma_timeline = st.selectbox(
+            "Selecciona una norma municipal:",
+            options=normativas_para_timeline,
+            format_func=format_norma_label,
+            key="timeline_norm_selector"
+        )
+        
+        if selected_norma_timeline:
+            norm_id = selected_norma_timeline['id']
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"**Número:** {selected_norma_timeline['numero']}")
+                st.markdown(f"**Tipo:** {selected_norma_timeline['tipo_nombre']}")
+                st.markdown(f"**Fecha original:** {selected_norma_timeline['fecha']}")
+            with col2:
+                st.markdown(f"**Título Oficial:** {selected_norma_timeline['titulo']}")
+                st.markdown(f"**Estado:** {'Vigente' if selected_norma_timeline['vigente'] else 'No Vigente/Derogada'}")
+                st.markdown(f"**Categoría:** {selected_norma_timeline['categoria_nombre']}")
+            
+            st.divider()
+            
+            # Selector de fecha para línea de tiempo
+            usar_timeline = st.checkbox("🔍 Activar Máquina del Tiempo (Ver texto en una fecha específica)", key="main_tab_use_timeline")
+            fecha_filtro = None
+            if usar_timeline:
+                selected_date = st.date_input("Ver estado de los artículos en esta fecha:", value=datetime.date.today(), key="main_tab_timeline_date")
+                fecha_filtro = selected_date.strftime('%Y-%m-%d')
+                st.info(f"Mostrando versión de los artículos tal cual regían el {fecha_filtro}.")
+            
+            articulos_db = database.get_articulos_por_norma(int(norm_id), fecha=fecha_filtro)
+            if articulos_db:
+                st.success(f"Se encontraron {len(articulos_db)} artículos/secciones activos.")
+                for art in articulos_db:
+                    # Badge de estado temporal
+                    if not art.get('fecha_hasta'):
+                        badge = f"🟢 Vigente hoy (v{art['version_numero']})"
+                    else:
+                        badge = f"🔴 Modificado/Derogado (Vigente {art['fecha_desde']} a {art['fecha_hasta']})"
+                        
+                    with st.expander(f"Artículo {art['numero']} — {badge}"):
+                        st.write(art['texto'])
+                        
+                        # Mostrar historial de versiones si hay más de una
+                        historial = database.get_historial_articulo(int(norm_id), art['numero'])
+                        if len(historial) > 1:
+                            st.markdown("---")
+                            st.markdown("**Historial de versiones de este artículo:**")
+                            for h in historial:
+                                ver_badge = "Creación original" if h['version_numero'] == 1 else f"Modificación por {h['fuente_norma_tipo']} Nº {h['fuente_norma_numero']}"
+                                periodo = f"Vigencia: {h['fecha_desde']}" + (f" hasta {h['fecha_hasta']}" if h['fecha_hasta'] else " en adelante (Activo)")
+                                st.markdown(f"* **v{h['version_numero']}** — *{ver_badge}* ({periodo})")
+                                st.caption(f"*Texto:* {h['texto'][:250]}...")
+            else:
+                st.info("Este documento no está estructurado en artículos o no estaba vigente en la fecha seleccionada.")
+    else:
+        st.info("La base de datos está vacía. Procesa algunos documentos primero.")
+
+with tab4:
     st.header("Buscador Avanzado de Normativas")
     st.write("Busca documentos en la base de datos municipal por significado conceptual o por palabras clave exactas.")
     
@@ -422,7 +498,7 @@ with tab3:
                 except Exception as e:
                     st.error(f"Error en la búsqueda FTS5: {e}")
 
-with tab4:
+with tab5:
     st.header("🕸️ Mapa de Conexiones (Grafo)")
     st.write("Visualiza cómo las normativas se referencian entre sí.")
     
@@ -462,7 +538,7 @@ with tab4:
         else:
             st.info("👈 Haz clic en 'Generar Mapa' para ver las conexiones.")
 
-with tab5:
+with tab6:
     st.header("⚖️ Relaciones Jurídicas")
     st.write("Listado detallado de las acciones legales (modificaciones, derogaciones, etc.) que ejercen unas normas sobre otras.")
     
