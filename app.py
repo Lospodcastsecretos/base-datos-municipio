@@ -454,11 +454,37 @@ with tab2:
                             if len(historial) > 1:
                                 st.markdown("---")
                                 st.markdown("**Historial de versiones de este artículo:**")
-                                for h in historial:
+                                for i, h in enumerate(historial):
                                     ver_badge = "Creación original" if h['version_numero'] == 1 else f"Modificación por {h['fuente_norma_tipo']} Nº {h['fuente_norma_numero']}"
                                     periodo = f"Vigencia: {h['fecha_desde']}" + (f" hasta {h['fecha_hasta']}" if h['fecha_hasta'] else " en adelante (Activo)")
-                                    st.markdown(f"* **v{h['version_numero']}** — *{ver_badge}* ({periodo})")
-                                    st.caption(f"*Texto:* {h['texto'][:250]}...")
+                                    st.markdown(f"#### v{h['version_numero']} — {ver_badge}")
+                                    st.caption(f"_{periodo}_")
+                                    
+                                    if i > 0:
+                                        import difflib
+                                        old_text = historial[i-1]['texto']
+                                        new_text = h['texto']
+                                        sm = difflib.SequenceMatcher(None, old_text.split(), new_text.split())
+                                        diff_html = []
+                                        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                                            if tag == 'replace':
+                                                old_words = " ".join(old_text.split()[i1:i2])
+                                                new_words = " ".join(new_text.split()[j1:j2])
+                                                diff_html.append(f"<del style='color:#a94442; background-color:#f2dede; text-decoration:line-through;'>{old_words}</del> <ins style='color:#3c763d; background-color:#dff0d8; text-decoration:none; font-weight:bold;'>{new_words}</ins>")
+                                            elif tag == 'delete':
+                                                old_words = " ".join(old_text.split()[i1:i2])
+                                                diff_html.append(f"<del style='color:#a94442; background-color:#f2dede; text-decoration:line-through;'>{old_words}</del>")
+                                            elif tag == 'insert':
+                                                new_words = " ".join(new_text.split()[j1:j2])
+                                                diff_html.append(f"<ins style='color:#3c763d; background-color:#dff0d8; text-decoration:none; font-weight:bold;'>{new_words}</ins>")
+                                            elif tag == 'equal':
+                                                diff_html.append(" ".join(old_text.split()[i1:i2]))
+                                        
+                                        final_html = " ".join(diff_html)
+                                        st.markdown("**🔍 Diferencias con la versión anterior:**")
+                                        st.markdown(f"<div style='border:1px solid #ddd; padding:10px; border-radius:5px; background-color:#f9f9f9; color:black;'>{final_html}</div><br>", unsafe_allow_html=True)
+                                    else:
+                                        st.info(f"*{h['texto']}*")
                 else:
                     st.info("Este documento no está estructurado en artículos o no estaba vigente en la fecha seleccionada.")
             
@@ -640,11 +666,37 @@ with tab3:
                         if len(historial) > 1:
                             st.markdown("---")
                             st.markdown("**Historial de versiones de este artículo:**")
-                            for h in historial:
+                            for i, h in enumerate(historial):
                                 ver_badge = "Creación original" if h['version_numero'] == 1 else f"Modificación por {h['fuente_norma_tipo']} Nº {h['fuente_norma_numero']}"
                                 periodo = f"Vigencia: {h['fecha_desde']}" + (f" hasta {h['fecha_hasta']}" if h['fecha_hasta'] else " en adelante (Activo)")
-                                st.markdown(f"* **v{h['version_numero']}** — *{ver_badge}* ({periodo})")
-                                st.caption(f"*Texto:* {h['texto'][:250]}...")
+                                st.markdown(f"#### v{h['version_numero']} — {ver_badge}")
+                                st.caption(f"_{periodo}_")
+                                
+                                if i > 0:
+                                    import difflib
+                                    old_text = historial[i-1]['texto']
+                                    new_text = h['texto']
+                                    sm = difflib.SequenceMatcher(None, old_text.split(), new_text.split())
+                                    diff_html = []
+                                    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                                        if tag == 'replace':
+                                            old_words = " ".join(old_text.split()[i1:i2])
+                                            new_words = " ".join(new_text.split()[j1:j2])
+                                            diff_html.append(f"<del style='color:#a94442; background-color:#f2dede; text-decoration:line-through;'>{old_words}</del> <ins style='color:#3c763d; background-color:#dff0d8; text-decoration:none; font-weight:bold;'>{new_words}</ins>")
+                                        elif tag == 'delete':
+                                            old_words = " ".join(old_text.split()[i1:i2])
+                                            diff_html.append(f"<del style='color:#a94442; background-color:#f2dede; text-decoration:line-through;'>{old_words}</del>")
+                                        elif tag == 'insert':
+                                            new_words = " ".join(new_text.split()[j1:j2])
+                                            diff_html.append(f"<ins style='color:#3c763d; background-color:#dff0d8; text-decoration:none; font-weight:bold;'>{new_words}</ins>")
+                                        elif tag == 'equal':
+                                            diff_html.append(" ".join(old_text.split()[i1:i2]))
+                                    
+                                    final_html = " ".join(diff_html)
+                                    st.markdown("**🔍 Diferencias con la versión anterior:**")
+                                    st.markdown(f"<div style='border:1px solid #ddd; padding:10px; border-radius:5px; background-color:#f9f9f9; color:black;'>{final_html}</div><br>", unsafe_allow_html=True)
+                                else:
+                                    st.info(f"*{h['texto']}*")
             else:
                 st.info("Este documento no está estructurado en artículos o no estaba vigente en la fecha seleccionada.")
     else:
