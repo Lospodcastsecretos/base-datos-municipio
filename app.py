@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 import datetime
+import sys
 from document_processor import process_document
 from ai_extractor import extract_metadata_and_summary, generate_embedding
 import database
@@ -140,13 +141,13 @@ with tab2:
         if st.button("🤖 Segmentar Artículos de Documentos Antiguos (OpenAI)", use_container_width=True):
             with st.spinner("Llamando a OpenAI para estructurar documentos antiguos... Revisa la consola negra para ver el progreso detallado. Puede tardar varios minutos."):
                 import subprocess
-                subprocess.Popen(["venv\\Scripts\\python.exe", "backfill_articulos.py", "--engine", "OpenAI"])
+                subprocess.Popen([sys.executable, "-u", "backfill_articulos.py", "--engine", "OpenAI"])
                 st.success("¡Proceso de segmentación iniciado en segundo plano! Revisa la consola negra.")
     with col_back2:
         if st.button("⛓️ Calcular Vigencias y Consolidar Textos (OpenAI)", use_container_width=True):
             with st.spinner("Llamando a OpenAI para consolidar textos modificados... Revisa la consola negra para ver el progreso detallado."):
                 import subprocess
-                subprocess.Popen(["venv\\Scripts\\python.exe", "consolidator.py"])
+                subprocess.Popen([sys.executable, "-u", "consolidator.py"])
                 st.success("¡Proceso de consolidación iniciado en segundo plano! Revisa la consola negra.")
     
     normativas = database.get_all_normativas()
