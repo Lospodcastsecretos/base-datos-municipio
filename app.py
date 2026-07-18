@@ -27,7 +27,8 @@ with tab1:
     # Engine selector
     st.subheader("Configuración de IA")
     ia_engine = st.radio("Selecciona el motor de Inteligencia Artificial para extraer los datos:", 
-                         options=["DeepSeek (Recomendado - Menos límites)", "OpenAI GPT-4o-mini (Rápido y Estable)", "Google Gemini (Plan Gratuito)"])
+                         options=["DeepSeek (Recomendado - Menos límites)", "OpenAI GPT-4o-mini (Rápido y Estable)", "Google Gemini (Plan Gratuito)"],
+                         key="active_ia_engine")
     
     if st.button("Procesar Archivos", type="primary"):
         if not uploaded_files:
@@ -438,9 +439,16 @@ with tab4:
         st.divider()
         st.write("Usa DeepSeek u OpenAI para escanear documentos que fueron subidos antes de implementar el mapa.")
         if st.button("🔍 Escanear documentos antiguos", use_container_width=True):
-            api_choice = "DeepSeek" if os.getenv("DEEPSEEK_API_KEY") else ("OpenAI" if os.getenv("OPENAI_API_KEY") else None)
-            if not api_choice:
-                st.error("⚠️ Necesitas configurar DEEPSEEK_API_KEY u OPENAI_API_KEY en .env")
+            ia_choice = st.session_state.get("active_ia_engine", "DeepSeek")
+            api_choice = "OpenAI" if "OpenAI" in ia_choice else ("DeepSeek" if "DeepSeek" in ia_choice else "Gemini")
+            
+            # Verificar API Keys
+            if api_choice == "DeepSeek" and not os.getenv("DEEPSEEK_API_KEY"):
+                st.error("⚠️ Falta configurar DEEPSEEK_API_KEY en .env")
+            elif api_choice == "OpenAI" and not os.getenv("OPENAI_API_KEY"):
+                st.error("⚠️ Falta configurar OPENAI_API_KEY en .env")
+            elif api_choice == "Gemini" and not os.getenv("GOOGLE_API_KEY"):
+                st.error("⚠️ Falta configurar GOOGLE_API_KEY en .env")
             else:
                 normativas = database.get_all_normativas()
                 import json
@@ -457,9 +465,12 @@ with tab4:
                         if api_choice == "DeepSeek":
                             from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
                             metadata = extract_metadata_and_summary_deepseek(norma['texto_completo'])
-                        else:
+                        elif api_choice == "OpenAI":
                             from ai_extractor_openai import extract_metadata_and_summary_openai
                             metadata = extract_metadata_and_summary_openai(norma['texto_completo'])
+                        else:
+                            from ai_extractor import extract_metadata_and_summary
+                            metadata = extract_metadata_and_summary(norma['texto_completo'])
                             
                         refs = metadata.get('referencias', [])
                         rels = metadata.get('relaciones_juridicas', [])
