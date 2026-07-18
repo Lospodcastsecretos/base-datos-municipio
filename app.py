@@ -631,24 +631,7 @@ with tab5:
                 html_data = generate_network_graph()
                 st.session_state['graph_html'] = html_data
                 
-        st.divider()
-        st.write("Usa DeepSeek u OpenAI para escanear documentos que fueron subidos antes de implementar el mapa.")
-        if st.button("🔍 Escanear documentos antiguos", use_container_width=True):
-            ia_choice = st.session_state.get("active_ia_engine", "DeepSeek")
-            api_choice = "OpenAI" if "OpenAI" in ia_choice else ("DeepSeek" if "DeepSeek" in ia_choice else "Gemini")
-            
-            # Verificar API Keys
-            if api_choice == "DeepSeek" and not os.getenv("DEEPSEEK_API_KEY"):
-                st.error("⚠️ Falta configurar DEEPSEEK_API_KEY en .env")
-            elif api_choice == "OpenAI" and not os.getenv("OPENAI_API_KEY"):
-                st.error("⚠️ Falta configurar OPENAI_API_KEY en .env")
-            elif api_choice == "Gemini" and not os.getenv("GOOGLE_API_KEY"):
-                st.error("⚠️ Falta configurar GOOGLE_API_KEY en .env")
-            else:
-                with st.spinner(f"Llamando a {api_choice} en segundo plano... Revisa la consola negra para el progreso."):
-                    import subprocess
-                    subprocess.Popen([sys.executable, "-u", "backfill_conexiones.py", "--engine", api_choice])
-                    st.success("¡Escaneo de conexiones iniciado en segundo plano! Sigue el progreso en tiempo real en la consola negra.")
+        pass
                 
     with col_g1:
         if 'graph_html' in st.session_state:
