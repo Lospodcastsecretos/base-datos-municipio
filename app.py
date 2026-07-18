@@ -584,21 +584,25 @@ with tab4:
                             except Exception:
                                 pass
                     else:
+                        import re
+                        num_para_buscar = str(selected_norm['numero']).strip()
                         for n in all_normativas:
                             if n['relaciones_juridicas'] and n['relaciones_juridicas'] not in ['[]', 'None']:
                                 try:
                                     rels = json.loads(n['relaciones_juridicas'])
                                     for r in rels:
-                                        target_str = str(r.get('norma_destino', '')).lower()
-                                        if str(selected_norm['numero']).lower() in target_str or target_str in str(selected_norm['numero']).lower():
-                                            act = str(r.get('accion', '')).lower()
-                                            if accion_filter == "Cualquier Acción" or accion_filter in act:
-                                                resultados_rel.append({
-                                                    "Norma Origen": f"{n['tipo_nombre']} Nº {n['numero']}",
-                                                    "Acción Jurídica": str(r.get('accion', '')).upper(),
-                                                    "Norma Destino (Afectada)": target_str.upper(),
-                                                    "Detalle Adicional": str(r.get('detalle', ''))
-                                                })
+                                        target_str = str(r.get('norma_destino', '')).strip()
+                                        if target_str:
+                                            # Buscar el número exacto usando límites de palabra (\b) para evitar falsos positivos
+                                            if re.search(rf"\b{re.escape(num_para_buscar)}\b", target_str.lower()):
+                                                act = str(r.get('accion', '')).lower()
+                                                if accion_filter == "Cualquier Acción" or accion_filter in act:
+                                                    resultados_rel.append({
+                                                        "Norma Origen": f"{n['tipo_nombre']} Nº {n['numero']}",
+                                                        "Acción Jurídica": str(r.get('accion', '')).upper(),
+                                                        "Norma Destino (Afectada)": target_str.upper(),
+                                                        "Detalle Adicional": str(r.get('detalle', ''))
+                                                    })
                                 except Exception:
                                     pass
                     
