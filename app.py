@@ -546,6 +546,7 @@ with tab4:
                 if es_destino:
                     normas_filtradas.append(n)
             
+            st.caption(f"🔍 **Depuración:** {len(all_normativas)} documentos en total, {len(normas_filtradas)} con relaciones detectadas.")
             if not normas_filtradas:
                 st.warning("⚠️ No se encontraron normativas con relaciones registradas en la base de datos.")
                 st.info("💡 **Cómo activar las relaciones:** Si acabas de cargar documentos, ve a la pestaña **`🕸️ Mapa de Conexiones (Grafo)`** y haz clic en el botón **`🔄 Generar / Actualizar Mapa`** para que la IA y las expresiones regulares detecten las conexiones entre tus ordenanzas.")
