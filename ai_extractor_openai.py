@@ -59,6 +59,7 @@ def extract_metadata_and_summary_openai(texto: str) -> dict:
     prompt_sistema = f"""
     Eres un asistente legal experto en analizar normativas municipales.
     Extrae la información del siguiente documento y devuélvela ESTRICTAMENTE en formato JSON válido, sin usar bloques de código Markdown ni texto adicional.
+    El campo 'numero' debe ser el número identificador de la norma. IMPORTANTE: Si el documento no tiene un número claro (ej. es un anexo, pliego, contrato o memoria descriptiva sin número propio de ordenanza/decreto), pon "S/N" (Sin Número). ¡NUNCA uses el número del ejemplo "8547" si no corresponde!
     El campo 'referencias' debe ser una lista con los números exactos de otras ordenanzas o decretos mencionados.
     El campo 'relaciones_juridicas' debe ser una lista de objetos describiendo la acción exacta que esta norma ejerce sobre otras. 
     Las acciones permitidas son: "modifica", "sustituye", "deroga total", "deroga parcial", "incorpora", "suprime", "reglamenta", "prorroga", "suspende", "complementa", "remite a", "corrige", "aprueba anexo".

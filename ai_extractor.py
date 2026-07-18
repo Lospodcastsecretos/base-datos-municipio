@@ -48,7 +48,7 @@ def extract_metadata_and_summary(texto: str) -> dict:
     Tu tarea es extraer la información clave y devolverla ESTRICTAMENTE en formato JSON, siguiendo este esquema:
 
     {{
-      "numero": "string",
+      "numero": "string (El número identificador. Si el documento no tiene un número claro de ordenanza/decreto, pon 'S/N'. ¡NUNCA uses un número de ejemplo!)",
       "titulo": "string",
       "resumen": "string",
       "tipo_nombre": "string",
