@@ -229,15 +229,20 @@ with tab2:
                 
                 articulos_db = database.get_articulos_por_norma(int(selected_id), fecha=fecha_filtro)
                 if articulos_db:
-                    st.success(f"Se encontraron {len(articulos_db)} artículos/secciones activos.")
+                    st.success(f"Se encontraron {len(articulos_db)} artículos/secciones en la estructura de la norma.")
                     for art in articulos_db:
                         # Badge de estado temporal
-                        if not art.get('fecha_hasta'):
-                            badge = f"🟢 Vigente hoy (v{art['version_numero']})"
+                        if art.get('es_vigente') == 1:
+                            if not art.get('fecha_hasta'):
+                                badge = f"🟢 Vigente hoy (v{art['version_numero']})"
+                            else:
+                                badge = f"🟡 Vigente en la fecha seleccionada (v{art['version_numero']} - Modificado después en {art['fecha_hasta']})"
                         else:
-                            badge = f"🔴 Modificado/Derogado (Vigente {art['fecha_desde']} a {art['fecha_hasta']})"
+                            badge = f"🔴 Derogado/Suprimido (el {art['fecha_hasta']})"
                             
                         with st.expander(f"Artículo {art['numero']} — {badge}"):
+                            if art.get('es_vigente') == 0:
+                                st.warning(f"⚠️ Este artículo se encuentra Derogado/Suprimido desde el {art['fecha_hasta']}.")
                             st.write(art['texto'])
                             
                             # Mostrar historial de versiones si hay más de una
@@ -411,15 +416,20 @@ with tab3:
             
             articulos_db = database.get_articulos_por_norma(int(norm_id), fecha=fecha_filtro)
             if articulos_db:
-                st.success(f"Se encontraron {len(articulos_db)} artículos/secciones activos.")
+                st.success(f"Se encontraron {len(articulos_db)} artículos/secciones en la estructura de la norma.")
                 for art in articulos_db:
                     # Badge de estado temporal
-                    if not art.get('fecha_hasta'):
-                        badge = f"🟢 Vigente hoy (v{art['version_numero']})"
+                    if art.get('es_vigente') == 1:
+                        if not art.get('fecha_hasta'):
+                            badge = f"🟢 Vigente hoy (v{art['version_numero']})"
+                        else:
+                            badge = f"🟡 Vigente en la fecha seleccionada (v{art['version_numero']} - Modificado después en {art['fecha_hasta']})"
                     else:
-                        badge = f"🔴 Modificado/Derogado (Vigente {art['fecha_desde']} a {art['fecha_hasta']})"
+                        badge = f"🔴 Derogado/Suprimido (el {art['fecha_hasta']})"
                         
                     with st.expander(f"Artículo {art['numero']} — {badge}"):
+                        if art.get('es_vigente') == 0:
+                            st.warning(f"⚠️ Este artículo se encuentra Derogado/Suprimido desde el {art['fecha_hasta']}.")
                         st.write(art['texto'])
                         
                         # Mostrar historial de versiones si hay más de una

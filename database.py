@@ -265,26 +265,36 @@ def delete_normativa(id_normativa: int):
         print(f"Error borrando de ChromaDB: {e}")
 
 def get_articulos_por_norma(normativa_id: int, fecha: str = None) -> list[dict]:
-    """Retrieves all articles for a given document, optionally filtering by date of validity."""
+    """Retrieves all articles for a given document at a specific date, indicating if they are active or derogated."""
+    if not fecha:
+        import datetime
+        fecha = datetime.date.today().strftime('%Y-%m-%d')
+        
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    if fecha:
-        cursor.execute('''
-            SELECT * FROM articulos 
-            WHERE normativa_id = ? 
-              AND (fecha_desde <= ? OR fecha_desde IS NULL OR fecha_desde = '')
-              AND (fecha_hasta > ? OR fecha_hasta IS NULL OR fecha_hasta = '')
-            ORDER BY CAST(numero AS INTEGER), numero ASC, version_numero ASC
-        ''', (normativa_id, fecha, fecha))
-    else:
-        # Por defecto, traer las versiones vigentes hoy
-        cursor.execute('''
-            SELECT * FROM articulos 
-            WHERE normativa_id = ? 
-              AND (fecha_hasta IS NULL OR fecha_hasta = '')
-            ORDER BY CAST(numero AS INTEGER), numero ASC, version_numero ASC
-        ''', (normativa_id,))
+    
+    # Esta query obtiene la version del articulo que corresponde a la fecha seleccionada
+    # e indica con 'es_vigente' si estaba activo (1) o ya habia sido derogado (0)
+    cursor.execute('''
+        SELECT a.*, 
+               (CASE 
+                    WHEN (a.fecha_hasta IS NULL OR a.fecha_hasta = '' OR a.fecha_hasta > ?) THEN 1 
+                    ELSE 0 
+                END) as es_vigente
+        FROM articulos a
+        WHERE a.normativa_id = ?
+          AND (a.fecha_desde <= ? OR a.fecha_desde IS NULL OR a.fecha_desde = '')
+          AND a.version_numero = (
+              SELECT MAX(a2.version_numero) 
+              FROM articulos a2 
+              WHERE a2.normativa_id = a.normativa_id 
+                AND a2.numero = a.numero 
+                AND (a2.fecha_desde <= ? OR a2.fecha_desde IS NULL OR a2.fecha_desde = '')
+          )
+        ORDER BY CAST(a.numero AS INTEGER), a.numero ASC
+    ''', (fecha, normativa_id, fecha, fecha))
+    
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
