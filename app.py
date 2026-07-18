@@ -242,8 +242,18 @@ with tab2:
                 with st.expander("Ver Documento Original Crudo (Sin estructurar)"):
                     st.text(detail['texto_completo'])
                 if st.button("🗑️ Eliminar Norma", type="primary", use_container_width=True):
-                    database.delete_normativa(int(selected_id))
-                    st.success("Norma eliminada exitosamente. Actualiza la tabla.")
+                    st.session_state[f'confirm_delete_{selected_id}'] = True
+                    
+                if st.session_state.get(f'confirm_delete_{selected_id}', False):
+                    st.warning("⚠️ ¿Estás completamente seguro de que deseas eliminar esta norma y todo su historial de la base de datos?")
+                    col_yes, col_no = st.columns(2)
+                    if col_yes.button("✅ Sí, eliminar definitivamente", use_container_width=True):
+                        database.delete_normativa(int(selected_id))
+                        st.session_state[f'confirm_delete_{selected_id}'] = False
+                        st.success("Norma eliminada exitosamente. Actualiza la página o cambia de selección.")
+                    if col_no.button("❌ No, cancelar", use_container_width=True):
+                        st.session_state[f'confirm_delete_{selected_id}'] = False
+                        st.rerun()
             
             with t_tab:
                 st.subheader("Estructura de la Norma y Línea de Tiempo")
