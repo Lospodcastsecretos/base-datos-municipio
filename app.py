@@ -450,42 +450,10 @@ with tab4:
             elif api_choice == "Gemini" and not os.getenv("GOOGLE_API_KEY"):
                 st.error("⚠️ Falta configurar GOOGLE_API_KEY en .env")
             else:
-                normativas = database.get_all_normativas()
-                import json
-                
-                progress_bar = st.progress(0)
-                status_text = st.empty()
-                
-                # Filtrar normativas sin referencias
-                viejas = [n for n in normativas if not n.get('referencias') or n.get('referencias') == '[]' or n.get('referencias') == 'None']
-                
-                for i, norma in enumerate(viejas):
-                    status_text.text(f"Escaneando Norma {norma['numero']} ({i+1}/{len(viejas)}) con {api_choice}...")
-                    try:
-                        if api_choice == "DeepSeek":
-                            from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
-                            metadata = extract_metadata_and_summary_deepseek(norma['texto_completo'])
-                        elif api_choice == "OpenAI":
-                            from ai_extractor_openai import extract_metadata_and_summary_openai
-                            metadata = extract_metadata_and_summary_openai(norma['texto_completo'])
-                        else:
-                            from ai_extractor import extract_metadata_and_summary
-                            metadata = extract_metadata_and_summary(norma['texto_completo'])
-                            
-                        refs = metadata.get('referencias', [])
-                        rels = metadata.get('relaciones_juridicas', [])
-                        
-                        # Actualizar en BD
-                        database.update_normativa(norma['id'], {
-                            "referencias": json.dumps(refs),
-                            "relaciones_juridicas": json.dumps(rels)
-                        })
-                    except Exception as e:
-                        pass
-                    progress_bar.progress((i + 1) / len(viejas))
-                
-                status_text.text("¡Escaneo completo! Actualiza el mapa para ver las nuevas conexiones.")
-                st.success(f"Se escanearon {len(viejas)} documentos antiguos con {api_choice}.")
+                with st.spinner(f"Llamando a {api_choice} en segundo plano... Revisa la consola negra para el progreso."):
+                    import subprocess
+                    subprocess.Popen([sys.executable, "-u", "backfill_conexiones.py", "--engine", api_choice])
+                    st.success("¡Escaneo de conexiones iniciado en segundo plano! Sigue el progreso en tiempo real en la consola negra.")
                 
     with col_g1:
         if 'graph_html' in st.session_state:
