@@ -534,16 +534,18 @@ with tab4:
                         pass
             
             normas_filtradas = []
+            import re
             for n in all_normativas:
                 if n['id'] in origenes:
                     normas_filtradas.append(n)
                     continue
-                num_str = str(n['numero']).lower()
+                num_str = str(n['numero']).strip()
                 es_destino = False
-                for d in destinos:
-                    if num_str and (num_str in d or d in num_str):
-                        es_destino = True
-                        break
+                if num_str:
+                    for d in destinos:
+                        if re.search(rf"\b{re.escape(num_str.lower())}\b", d):
+                            es_destino = True
+                            break
                 if es_destino:
                     normas_filtradas.append(n)
             
