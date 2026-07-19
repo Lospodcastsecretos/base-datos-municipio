@@ -161,8 +161,8 @@ with tab1:
             modo = "individual"
         else:
             st.info("El sistema dividirá automáticamente el Boletín en normas separadas utilizando los títulos (ej: `# Decreto 123`).")
-            boletin_file = st.file_uploader("Seleccionar Boletín (.md)", type=["md"], accept_multiple_files=False)
-            uploaded_files = [boletin_file] if boletin_file else []
+            boletin_files = st.file_uploader("Seleccionar Boletines (.md)", type=["md"], accept_multiple_files=True)
+            uploaded_files = boletin_files if boletin_files else []
             modo = "boletin"
         
         st.subheader("Configuración de IA")
