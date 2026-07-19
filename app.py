@@ -1115,7 +1115,7 @@ with tab8:
                          key="active_ia_engine_rag",
                          horizontal=True)
                          
-    agentic_mode = st.toggle("🧠 Activar Modo Agente Autónomo (Experimental)", value=False, help="Permite al LLM (requiere Gemini) usar herramientas avanzadas como SQL y Grafos de forma autónoma.")
+    agentic_mode = st.toggle("🧠 Activar Modo Agente Autónomo (Experimental)", value=False, help="Permite al LLM usar herramientas avanzadas como SQL y Grafos de forma autónoma.")
                          
     if "rag_history" not in st.session_state:
         st.session_state.rag_history = [{"role": "assistant", "content": "¡Hola! Soy tu asistente legal municipal. ¿Qué deseas saber sobre las normativas locales?"}]
@@ -1152,10 +1152,9 @@ with tab8:
                     if agentic_mode and "Gemini" in ia_engine_rag:
                         from agent_core import run_agent_gemini
                         respuesta, fuentes = run_agent_gemini(prompt, historial_anterior, callback=st.info)
-                    elif agentic_mode and "Gemini" not in ia_engine_rag:
-                        st.warning("El Modo Agente Autónomo actualmente requiere Google Gemini. Procesando consulta con RAG clásico...")
-                        from rag_assistant import answer_question_with_rag
-                        respuesta, fuentes = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
+                    elif agentic_mode and ("OpenAI" in ia_engine_rag or "DeepSeek" in ia_engine_rag):
+                        from agent_core import run_agent_openai
+                        respuesta, fuentes = run_agent_openai(prompt, historial_anterior, callback=st.info, engine=ia_engine_rag)
                     else:
                         from rag_assistant import answer_question_with_rag
                         respuesta, fuentes = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
