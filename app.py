@@ -361,7 +361,47 @@ with tab2:
         
         # Detail view
         st.subheader("Ver Detalle / Editar")
-        selected_id = st.selectbox("Seleccionar ID de norma para ver detalles:", df['id'])
+        
+        # Build options for number selection and sync with ID
+        num_options = []
+        id_to_label = {}
+        for _, row in df.iterrows():
+            lbl = f"{row['tipo_nombre']} Nº {row['numero']} (ID: {row['id']})"
+            num_options.append(lbl)
+            id_to_label[row['id']] = lbl
+            
+        if 'detail_select_id' not in st.session_state:
+            st.session_state.detail_select_id = df['id'].iloc[0] if not df.empty else None
+        if 'detail_select_label' not in st.session_state:
+            st.session_state.detail_select_label = id_to_label.get(st.session_state.detail_select_id) if st.session_state.detail_select_id else None
+            
+        def on_id_change():
+            st.session_state.detail_select_label = id_to_label.get(st.session_state.detail_select_id)
+            
+        def on_label_change():
+            lbl = st.session_state.detail_select_label
+            if lbl:
+                for k, v in id_to_label.items():
+                    if v == lbl:
+                        st.session_state.detail_select_id = k
+                        break
+                        
+        col_sel1, col_sel2 = st.columns(2)
+        with col_sel1:
+            selected_id = st.selectbox(
+                "Seleccionar por ID:", 
+                options=df['id'], 
+                key="detail_select_id",
+                on_change=on_id_change
+            )
+        with col_sel2:
+            selected_label = st.selectbox(
+                "Seleccionar por Número de Norma / Tipo:", 
+                options=num_options, 
+                key="detail_select_label",
+                on_change=on_label_change
+            )
+            
         if selected_id:
             detail = df[df['id'] == selected_id].iloc[0]
             
