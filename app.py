@@ -328,6 +328,8 @@ with tab2:
     
     if normativas:
         df = pd.DataFrame(normativas)
+        # Sort by ID from lowest to highest
+        df = df.sort_values(by='id', ascending=True).reset_index(drop=True)
         # Reorder and filter columns for display
         display_df = df[['id', 'numero', 'tipo_nombre', 'titulo', 'categoria_nombre', 'fecha', 'vigente', 'resumen_ia']]
         
