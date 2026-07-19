@@ -1,9 +1,25 @@
 # Tema Institucional Municipal
-# Inspirado en plataformas de gestión documental gubernamental
-# Azul institucional + blanco limpio + tipografía Inter
+# Light: Azul institucional + blanco limpio
+# Dark: Azul profundo + grises oscuros
 
+# ── Opciones compartidas ──────────────────────────────────────────────
 [theme]
-base = "light"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+codeFontSize = "0.85rem"
+baseFontSize = 14
+baseFontWeight = 400
+headingFontSizes = ["28px", "22px", "18px", "16px", "14px", "12px"]
+headingFontWeights = [700, 600, 600, 600, 500, 500]
+linkUnderline = false
+baseRadius = "6px"
+buttonRadius = "6px"
+showWidgetBorder = true
+showSidebarBorder = true
+
+# ── Modo Claro (Institucional) ────────────────────────────────────────
+[theme.light]
 primaryColor = "#2E4057"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F4F6F9"
@@ -11,21 +27,7 @@ codeBackgroundColor = "#EDF2F7"
 textColor = "#1A202C"
 linkColor = "#2B6CB0"
 borderColor = "#CBD5E0"
-showWidgetBorder = true
-showSidebarBorder = true
-baseRadius = "6px"
-buttonRadius = "6px"
-
-font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
-codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
-codeFontSize = "0.85rem"
 codeTextColor = "#2D3748"
-baseFontSize = 14
-baseFontWeight = 400
-headingFontSizes = ["28px", "22px", "18px", "16px", "14px", "12px"]
-headingFontWeights = [700, 600, 600, 600, 500, 500]
-linkUnderline = false
 
 chartCategoricalColors = ["#2E4057", "#2B6CB0", "#38A169", "#D69E2E", "#E53E3E", "#805AD5", "#DD6B20"]
 
@@ -40,7 +42,7 @@ grayColor = "#718096"
 dataframeBorderColor = "#E2E8F0"
 dataframeHeaderBackgroundColor = "#2E4057"
 
-[theme.sidebar]
+[theme.light.sidebar]
 backgroundColor = "#2E4057"
 secondaryBackgroundColor = "#1A2A3A"
 codeBackgroundColor = "#1A2A3A"
@@ -49,3 +51,37 @@ borderColor = "#4A5568"
 primaryColor = "#63B3ED"
 dataframeHeaderBackgroundColor = "#1A2A3A"
 dataframeBorderColor = "#4A5568"
+
+# ── Modo Oscuro ───────────────────────────────────────────────────────
+[theme.dark]
+primaryColor = "#63B3ED"
+backgroundColor = "#0F1923"
+secondaryBackgroundColor = "#1A2735"
+codeBackgroundColor = "#1A2735"
+textColor = "#E2E8F0"
+linkColor = "#63B3ED"
+borderColor = "#2D3E50"
+codeTextColor = "#CBD5E0"
+
+chartCategoricalColors = ["#63B3ED", "#68D391", "#F6AD55", "#FC8181", "#B794F4", "#4FD1C5", "#F687B3"]
+
+blueColor = "#63B3ED"
+greenColor = "#68D391"
+redColor = "#FC8181"
+yellowColor = "#F6E05E"
+orangeColor = "#F6AD55"
+violetColor = "#B794F4"
+grayColor = "#A0AEC0"
+
+dataframeBorderColor = "#2D3E50"
+dataframeHeaderBackgroundColor = "#1A2735"
+
+[theme.dark.sidebar]
+backgroundColor = "#0A1119"
+secondaryBackgroundColor = "#0F1923"
+codeBackgroundColor = "#0F1923"
+textColor = "#E2E8F0"
+borderColor = "#2D3E50"
+primaryColor = "#63B3ED"
+dataframeHeaderBackgroundColor = "#0F1923"
+dataframeBorderColor = "#2D3E50"
