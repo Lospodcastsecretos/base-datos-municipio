@@ -152,9 +152,18 @@ with tab1:
         st.session_state.staged_uploads = []
         
     if not st.session_state.staged_uploads:
-        st.write("Sube archivos PDF o DOCX. El sistema extraerá el texto, utilizará IA para entender los metadatos y los preparará para su revisión.")
+        st.write("Sube normativas individuales o procesa Boletines Oficiales completos para extracción masiva.")
         
-        uploaded_files = st.file_uploader("Seleccionar archivos", type=["pdf", "docx", "doc", "jpg", "jpeg", "png"], accept_multiple_files=True)
+        tipo_carga = st.radio("Tipo de documento a procesar:", ["Normativas Individuales (PDF, DOCX)", "Boletín Oficial Múltiple (Markdown)"], horizontal=True)
+        
+        if tipo_carga == "Normativas Individuales (PDF, DOCX)":
+            uploaded_files = st.file_uploader("Seleccionar archivos individuales", type=["pdf", "docx", "doc", "jpg", "jpeg", "png"], accept_multiple_files=True)
+            modo = "individual"
+        else:
+            st.info("El sistema dividirá automáticamente el Boletín en normas separadas utilizando los títulos (ej: `# Decreto 123`).")
+            boletin_file = st.file_uploader("Seleccionar Boletín (.md)", type=["md"], accept_multiple_files=False)
+            uploaded_files = [boletin_file] if boletin_file else []
+            modo = "boletin"
         
         st.subheader("Configuración de IA")
         ia_engine = st.radio("Selecciona el motor de Inteligencia Artificial para extraer los datos:", 
@@ -176,48 +185,67 @@ with tab1:
                 staged = []
                 
                 for i, file in enumerate(uploaded_files):
-                    status_text.text(f"Procesando: {file.name} ({i+1}/{len(uploaded_files)})")
                     try:
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as tmp_file:
-                            tmp_file.write(file.read())
-                            tmp_path = tmp_file.name
-     
-                        texto_completo = process_document(tmp_path, ia_engine)
-                        if not texto_completo:
-                            st.error(f"No se pudo extraer texto de {file.name}")
-                            continue
-                        
-                        status_text.text(f"Extrayendo metadatos con IA ({ia_engine}): {file.name}")
-                        if "DeepSeek" in ia_engine:
-                            from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
-                            metadata = extract_metadata_and_summary_deepseek(texto_completo)
-                        elif "OpenAI" in ia_engine:
-                            from ai_extractor_openai import extract_metadata_and_summary_openai
-                            metadata = extract_metadata_and_summary_openai(texto_completo)
+                        if modo == "individual":
+                            status_text.text(f"Extrayendo texto de: {file.name} ({i+1}/{len(uploaded_files)})")
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as tmp_file:
+                                tmp_file.write(file.read())
+                                tmp_path = tmp_file.name
+         
+                            texto_completo = process_document(tmp_path, ia_engine)
+                            os.unlink(tmp_path)
+                            
+                            textos_a_procesar = [texto_completo] if texto_completo else []
                         else:
-                            from ai_extractor import extract_metadata_and_summary
-                            metadata = extract_metadata_and_summary(texto_completo)
-                        
-                        status_text.text(f"Generando vector de búsqueda (Modelo Local sin límites): {file.name}")
-                        from ai_extractor import generate_embedding
-                        embedding = generate_embedding(texto_completo)
-                        
-                        staged.append({
-                            'metadata': metadata,
-                            'texto_completo': texto_completo,
-                            'file_name': file.name,
-                            'embedding': embedding
-                        })
-                        
-                        os.unlink(tmp_path)
-                        
-                        if len(uploaded_files) > 1 and i < len(uploaded_files) - 1:
-                            if "Google" in ia_engine:
-                                status_text.text(f"Esperando 60 segundos para no exceder el límite gratuito de Google...")
-                                time.sleep(60)
+                            # Modo boletin
+                            status_text.text(f"Analizando fragmentos del Boletín: {file.name}")
+                            texto_boletin = file.getvalue().decode('utf-8', errors='ignore')
+                            from boletin_parser import parse_boletin_markdown
+                            textos_a_procesar = parse_boletin_markdown(texto_boletin)
+                            st.success(f"Se encontraron {len(textos_a_procesar)} normativas dentro del boletín.")
+                            
+                        if not textos_a_procesar:
+                            st.error(f"No se pudo encontrar contenido válido en {file.name}")
+                            continue
+                            
+                        for j, texto_completo in enumerate(textos_a_procesar):
+                            suffix = f" (Frag. {j+1})" if len(textos_a_procesar) > 1 else ""
+                            nombre_mostrar = file.name + suffix
+                            status_text.text(f"Extrayendo metadatos con IA ({ia_engine}): {nombre_mostrar}")
+                            if "DeepSeek" in ia_engine:
+                                from ai_extractor_deepseek import extract_metadata_and_summary_deepseek
+                                metadata = extract_metadata_and_summary_deepseek(texto_completo)
+                            elif "OpenAI" in ia_engine:
+                                from ai_extractor_openai import extract_metadata_and_summary_openai
+                                metadata = extract_metadata_and_summary_openai(texto_completo)
                             else:
-                                time.sleep(1)
-                                
+                                from ai_extractor import extract_metadata_and_summary
+                                metadata = extract_metadata_and_summary(texto_completo)
+                            
+                            status_text.text(f"Generando vector de búsqueda (Modelo Local sin límites): {file.name}")
+                            from ai_extractor import generate_embedding
+                            embedding = generate_embedding(texto_completo)
+                            
+                            staged.append({
+                                'metadata': metadata,
+                                'texto_completo': texto_completo,
+                                'file_name': nombre_mostrar,
+                                'embedding': embedding
+                            })
+                            
+                            if len(textos_a_procesar) > 1 and j < len(textos_a_procesar) - 1:
+                                if "Google" in ia_engine:
+                                    time.sleep(40) # Rate limit intra-boletin
+                                else:
+                                    time.sleep(1)
+                            
+                            if len(uploaded_files) > 1 and i < len(uploaded_files) - 1:
+                                if "Google" in ia_engine:
+                                    status_text.text(f"Esperando 60 segundos para no exceder el límite gratuito de Google...")
+                                    time.sleep(60)
+                                else:
+                                    time.sleep(1)
+                                    
                     except Exception as e:
                         from tenacity import RetryError
                         if isinstance(e, RetryError):
