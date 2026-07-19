@@ -11,3 +11,5 @@ openai
 pymupdf
 spire-doc
 pyvis
+plotly
+
