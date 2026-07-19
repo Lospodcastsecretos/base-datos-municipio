@@ -17,7 +17,7 @@ from document_processor import process_document
 from ai_extractor import extract_metadata_and_summary, generate_embedding
 import database
 
-st.set_page_config(page_title="Base de Datos Municipal", layout="wide", page_icon="🏛️")
+st.set_page_config(page_title="Plataforma de Documentos Legales Municipales", layout="wide", page_icon=":material/account_balance:")
 
 # Initialize DB if not exists (Cached to prevent concurrent lock errors on reload)
 @st.cache_resource
@@ -130,9 +130,20 @@ def render_buscador_relaciones(all_normativas, key_prefix=""):
                     st.divider()
             else:
                 st.warning("No se encontraron relaciones jurídicas que coincidan con estos criterios para la norma seleccionada.")
-st.title("🏛️ Sistema de Gestión de Normativas Municipales")
+st.title("Plataforma de Documentos Legales Municipales")
+st.caption("Gestión de Acuerdos y Normativas")
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["📥 Procesar Documentos", "🗂️ Explorar Base de Datos", "📅 Línea de Tiempo y Artículos", "🔍 Buscador Avanzado", "🕸️ Mapa de Conexiones (Grafo)", "⚖️ Relaciones Jurídicas", "📊 Estado de la Base de Datos", "🤖 Asistente Jurídico (RAG)", "🔮 Búsqueda Híbrida 3-Vías"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+    ":material/upload_file: Procesar documentos",
+    ":material/folder_open: Explorar base de datos",
+    ":material/timeline: Línea de tiempo",
+    ":material/search: Buscador avanzado",
+    ":material/hub: Mapa de conexiones",
+    ":material/balance: Relaciones jurídicas",
+    ":material/monitoring: Estado de la base",
+    ":material/smart_toy: Asistente jurídico",
+    ":material/join: Búsqueda híbrida",
+])
 
 with tab1:
     st.header("Cargar y Procesar Normativas")

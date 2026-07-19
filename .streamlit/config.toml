@@ -1,0 +1,51 @@
+# Tema Institucional Municipal
+# Inspirado en plataformas de gestión documental gubernamental
+# Azul institucional + blanco limpio + tipografía Inter
+
+[theme]
+base = "light"
+primaryColor = "#2E4057"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F6F9"
+codeBackgroundColor = "#EDF2F7"
+textColor = "#1A202C"
+linkColor = "#2B6CB0"
+borderColor = "#CBD5E0"
+showWidgetBorder = true
+showSidebarBorder = true
+baseRadius = "6px"
+buttonRadius = "6px"
+
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+codeFontSize = "0.85rem"
+codeTextColor = "#2D3748"
+baseFontSize = 14
+baseFontWeight = 400
+headingFontSizes = ["28px", "22px", "18px", "16px", "14px", "12px"]
+headingFontWeights = [700, 600, 600, 600, 500, 500]
+linkUnderline = false
+
+chartCategoricalColors = ["#2E4057", "#2B6CB0", "#38A169", "#D69E2E", "#E53E3E", "#805AD5", "#DD6B20"]
+
+blueColor = "#2B6CB0"
+greenColor = "#38A169"
+redColor = "#E53E3E"
+yellowColor = "#D69E2E"
+orangeColor = "#DD6B20"
+violetColor = "#805AD5"
+grayColor = "#718096"
+
+dataframeBorderColor = "#E2E8F0"
+dataframeHeaderBackgroundColor = "#2E4057"
+
+[theme.sidebar]
+backgroundColor = "#2E4057"
+secondaryBackgroundColor = "#1A2A3A"
+codeBackgroundColor = "#1A2A3A"
+textColor = "#E2E8F0"
+borderColor = "#4A5568"
+primaryColor = "#63B3ED"
+dataframeHeaderBackgroundColor = "#1A2A3A"
+dataframeBorderColor = "#4A5568"
