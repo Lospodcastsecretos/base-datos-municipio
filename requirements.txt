@@ -1,0 +1,15 @@
+streamlit
+pandas
+pdfplumber
+python-docx
+google-generativeai
+chromadb
+pydantic
+python-dotenv
+tenacity
+openai
+pymupdf
+spire-doc
+pyvis
+plotly
+
