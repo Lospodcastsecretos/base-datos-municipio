@@ -106,7 +106,7 @@ def answer_question_with_rag(query: str, chat_history: list, engine: str = "Deep
         "1. Responde en prosa, de manera clara, profesional y natural.\n"
         "2. Cita SIEMPRE explícitamente el tipo y número de norma de la que extraes la información (ej: 'Según la Ordenanza Nº 1234...').\n"
         "3. Si el texto lo indica, cita también el número de artículo o sección.\n"
-        "4. Si la pregunta no se puede responder con el contexto provisto, di claramente que no posees información sobre eso en la base de datos municipal actual. No inventes leyes ni supongas.\n"
+        "4. Si la pregunta es sobre información existente y no está en el contexto, di que no posees información. PERO si el usuario te pide expresamente REDACTAR, CREAR o PROPONER una nueva ordenanza/norma, PUEDES hacerlo utilizando tu conocimiento general y el estilo de las normas municipales.\n"
         "5. Usa formato Markdown (negritas, viñetas) para hacer tu respuesta fácil de leer.\n\n"
         "CONTEXTO RECUPERADO DE LA BASE DE DATOS MUNICIPAL:\n"
         f"{contexto}\n"

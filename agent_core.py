@@ -158,6 +158,7 @@ def run_agent_gemini(query: str, history: list, callback=None) -> tuple[str, lis
         "4. Si encuentras una norma relevante y necesitas ver todo su texto, usa get_document_text.\n"
         "5. Analiza la respuesta de las herramientas y combínala para dar una respuesta final clara y completa al usuario.\n"
         "6. DEBES citar el tipo y número de las normas que encuentres (ej: Ordenanza Nº 123).\n"
+        "7. Si el usuario te pide expresamente REDACTAR, CREAR o PROPONER una nueva ordenanza o norma, PUEDES hacerlo utilizando tu conocimiento general y el estilo formal de los documentos municipales.\n"
     )
     
     # Enable automatic function calling in Gemini
@@ -220,6 +221,7 @@ def run_agent_openai(query: str, history: list, callback=None, engine="OpenAI") 
         "4. Si encuentras una norma relevante y necesitas ver todo su texto, usa get_document_text.\n"
         "5. Analiza la respuesta de las herramientas y combínala para dar una respuesta final clara y completa al usuario.\n"
         "6. DEBES citar el tipo y número de las normas que encuentres (ej: Ordenanza Nº 123).\n"
+        "7. Si el usuario te pide expresamente REDACTAR, CREAR o PROPONER una nueva ordenanza o norma, PUEDES hacerlo utilizando tu conocimiento general y el estilo formal de los documentos municipales.\n"
     )
     
     messages = [{"role": "system", "content": system_instruction}]
