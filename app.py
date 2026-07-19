@@ -1115,6 +1115,8 @@ with tab8:
                          key="active_ia_engine_rag",
                          horizontal=True)
                          
+    agentic_mode = st.toggle("🧠 Activar Modo Agente Autónomo (Experimental)", value=False, help="Permite al LLM (requiere Gemini) usar herramientas avanzadas como SQL y Grafos de forma autónoma.")
+                         
     if "rag_history" not in st.session_state:
         st.session_state.rag_history = [{"role": "assistant", "content": "¡Hola! Soy tu asistente legal municipal. ¿Qué deseas saber sobre las normativas locales?"}]
         
@@ -1145,10 +1147,18 @@ with tab8:
         with st.chat_message("assistant"):
             with st.spinner("Pensando y buscando normativas en la base de datos... ⏳"):
                 try:
-                    from rag_assistant import answer_question_with_rag
-                    # Le pasamos el historial anterior a la pregunta actual
                     historial_anterior = st.session_state.rag_history[:-1]
-                    respuesta, fuentes = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
+                    
+                    if agentic_mode and "Gemini" in ia_engine_rag:
+                        from agent_core import run_agent_gemini
+                        respuesta, fuentes = run_agent_gemini(prompt, historial_anterior, callback=st.info)
+                    elif agentic_mode and "Gemini" not in ia_engine_rag:
+                        st.warning("El Modo Agente Autónomo actualmente requiere Google Gemini. Procesando consulta con RAG clásico...")
+                        from rag_assistant import answer_question_with_rag
+                        respuesta, fuentes = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
+                    else:
+                        from rag_assistant import answer_question_with_rag
+                        respuesta, fuentes = answer_question_with_rag(prompt, historial_anterior, ia_engine_rag)
                     
                     st.markdown(respuesta)
                     if fuentes:
