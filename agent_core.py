@@ -27,10 +27,16 @@ def tool_sql_query(query: str) -> str:
             return "La consulta no devolvió resultados."
             
         # Limitar resultados para no saturar el token limit
-        if len(rows) > 50:
-            return f"Demasiados resultados ({len(rows)}). Muestra solo los primeros 50.\n" + str([dict(r) for r in rows[:50]])
+        if len(rows) > 30:
+            result_str = f"Demasiados resultados ({len(rows)}). Muestra solo los primeros 30.\n" + str([dict(r) for r in rows[:30]])
+        else:
+            result_str = str([dict(r) for r in rows])
             
-        return str([dict(r) for r in rows])
+        # Truncar drásticamente para evitar errores 429 de límite de tokens (Max 200k tokens)
+        if len(result_str) > 30000:
+            return result_str[:30000] + "\n\n...[RESULTADOS TRUNCADOS POR EXCESO DE LONGITUD. POR FAVOR, HAZ UNA CONSULTA MÁS ESPECÍFICA O SELECCIONA MENOS COLUMNAS]..."
+            
+        return result_str
     except Exception as e:
         return f"ERROR ejecutando SQL: {e}"
 
