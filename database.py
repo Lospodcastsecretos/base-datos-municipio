@@ -38,6 +38,8 @@ def init_db():
         cursor.execute("ALTER TABLE normativas ADD COLUMN referencias TEXT")
     if 'relaciones_juridicas' not in columns:
         cursor.execute("ALTER TABLE normativas ADD COLUMN relaciones_juridicas TEXT")
+    if 'eximiciones' not in columns:
+        cursor.execute("ALTER TABLE normativas ADD COLUMN eximiciones TEXT")
         
     # Crear tabla de articulos si no existe
     cursor.execute('''
@@ -124,9 +126,17 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
     else:
         rels_str = str(rels)
         
+    # Check if 'eximiciones' is present
+    exim_str = '[]'
+    exim = metadata.get('eximiciones', [])
+    if isinstance(exim, list):
+        exim_str = json.dumps(exim)
+    else:
+        exim_str = str(exim)
+        
     cursor.execute('''
-        INSERT INTO normativas (numero, titulo, resumen, tipo_nombre, categoria_nombre, vigente, fecha, url_detalle, texto_completo, texto_consolidado, resumen_ia, archivo_origen, referencias, relaciones_juridicas)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO normativas (numero, titulo, resumen, tipo_nombre, categoria_nombre, vigente, fecha, url_detalle, texto_completo, texto_consolidado, resumen_ia, archivo_origen, referencias, relaciones_juridicas, eximiciones)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         metadata.get('numero', ''),
         metadata.get('titulo', ''),
@@ -141,7 +151,8 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
         metadata.get('resumen_ia', ''),
         archivo_origen,
         refs_str,
-        rels_str
+        rels_str,
+        exim_str
     ))
     normativa_id = cursor.lastrowid
     
@@ -211,7 +222,7 @@ def update_normativa(db_id: int, updated_data: dict):
     fields = []
     values = []
     
-    for key in ['numero', 'titulo', 'tipo_nombre', 'categoria_nombre', 'vigente', 'fecha', 'resumen_ia', 'referencias', 'relaciones_juridicas']:
+    for key in ['numero', 'titulo', 'tipo_nombre', 'categoria_nombre', 'vigente', 'fecha', 'resumen_ia', 'referencias', 'relaciones_juridicas', 'eximiciones']:
         if key in updated_data:
             fields.append(f"{key} = ?")
             values.append(updated_data[key])

@@ -25,6 +25,7 @@ class NormativaMetadata(BaseModel):
     resumen_ia: str = Field(description="Un resumen de exactamente 3 renglones generado por la Inteligencia Artificial explicando de qué trata.")
     relaciones_juridicas: list = Field(description="Lista de objetos describiendo la acción sobre otras normas (modifica, deroga, etc).")
     articulos: list = Field(description="Lista de objetos con número y texto de cada artículo de la norma.")
+    eximiciones: list = Field(description="Lista de exenciones impositivas, condonaciones o beneficios fiscales otorgados a personas/entidades (ej: 'Eximición 100% tasa x').", default=[])
 
 from tenacity import retry, stop_after_attempt, wait_fixed
 
@@ -75,6 +76,10 @@ def extract_metadata_and_summary(texto: str) -> dict:
           "numero": "2",
           "texto": "Comuniquese, publiquese y archivese."
         }}
+      ],
+      "eximiciones": [
+        "Eximición del 100% en tasa de comercio para el club X",
+        "Condonación de deuda de patente"
       ]
     }}
 

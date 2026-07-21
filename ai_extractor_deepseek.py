@@ -53,6 +53,10 @@ def extract_metadata_and_summary_deepseek(texto: str) -> dict:
           "numero": "2",
           "texto": "Comuniquese, publiquese y archivese."
         }
+      ],
+      "eximiciones": [
+        "Eximición del 100% en tasa de comercio para el club X",
+        "Condonación de deuda de patente"
       ]
     }
     '''

@@ -293,6 +293,12 @@ with tab1:
                         st.warning("No se pudo analizar el impacto jurídico.")
                 else:
                     st.success("✅ No se detectaron modificaciones a otras normas (Norma independiente o marco).")
+                
+                exim = meta.get('eximiciones', [])
+                if exim:
+                    st.info(f"💡 **Eximiciones/Beneficios Fiscales Detectados:** {len(exim)}")
+                    for e in exim:
+                        st.markdown(f"- 🏷️ {e}")
                         
         st.divider()
         col1, col2 = st.columns(2)
@@ -466,6 +472,18 @@ with tab2:
                 with col2:
                     st.markdown(f"**Título Oficial:** {detail['titulo']}")
                     st.markdown(f"**Resumen IA:** {detail['resumen_ia']}")
+                
+                exim_raw = detail.get('eximiciones', '[]')
+                if exim_raw and exim_raw not in ('[]', 'None', ''):
+                    try:
+                        exim_list = json.loads(exim_raw)
+                        if exim_list:
+                            st.markdown("---")
+                            st.markdown("### 🏷️ Eximiciones y Beneficios Fiscales")
+                            for ex in exim_list:
+                                st.markdown(f"- {ex}")
+                    except:
+                        pass
                 
                 with st.expander("Ver Documento Original Crudo (Sin estructurar)"):
                     st.text(detail['texto_completo'])
