@@ -174,11 +174,14 @@ def run_agent_gemini(query: str, history: list, callback=None) -> tuple[str, lis
         system_instruction=system_instruction
     )
     
-    # Format history
+    # Format history (limitar a últimos 4 mensajes y truncar textos gigantes)
     formatted_history = []
-    for msg in history:
+    for msg in history[-4:]:
         role = 'model' if msg['role'] == 'assistant' else 'user'
-        formatted_history.append({"role": role, "parts": [msg['content']]})
+        content = msg['content']
+        if content and len(content) > 4000:
+            content = content[:4000] + "\n...[Historial truncado para conservar memoria]..."
+        formatted_history.append({"role": role, "parts": [content]})
         
     chat = model.start_chat(
         history=formatted_history, 
@@ -231,8 +234,14 @@ def run_agent_openai(query: str, history: list, callback=None, engine="OpenAI") 
     )
     
     messages = [{"role": "system", "content": system_instruction}]
-    for msg in history:
-        messages.append({"role": msg["role"], "content": msg["content"]})
+    
+    # Limitar el historial a los últimos 4 mensajes y truncar textos gigantes
+    for msg in history[-4:]:
+        content = msg["content"]
+        if content and len(content) > 4000:
+            content = content[:4000] + "\n...[Historial truncado para conservar memoria]..."
+        messages.append({"role": msg["role"], "content": content})
+        
     messages.append({"role": "user", "content": query})
     
     tools = [
