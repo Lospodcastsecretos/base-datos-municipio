@@ -160,9 +160,16 @@ def insert_normativa(metadata: dict, texto_completo: str, archivo_origen: str, e
     articulos = metadata.get('articulos', [])
     fecha_norma = metadata.get('fecha', '') or '2000-01-01'
     if isinstance(articulos, list):
-        for art in articulos:
-            num_art = art.get('numero', '')
-            txt_art = art.get('texto', '')
+        for i, art in enumerate(articulos):
+            num_art = ""
+            txt_art = ""
+            if isinstance(art, dict):
+                num_art = str(art.get('numero', ''))
+                txt_art = str(art.get('texto', ''))
+            elif isinstance(art, str):
+                num_art = str(i + 1)
+                txt_art = art
+                
             if txt_art:
                 cursor.execute('''
                     INSERT INTO articulos (normativa_id, numero, texto, version_numero, fecha_desde, fuente_normativa_id)
